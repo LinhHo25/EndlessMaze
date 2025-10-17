@@ -99,6 +99,7 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Linh\Models\" />
     <Folder Include="Phong\Image\Char\Player\Knight_Type_1\" />
     <Folder Include="Phong\Image\Char\Player\Knight_Type_2\" />
     <Folder Include="Phong\Image\Char\Player\Knight_Type_3\" />

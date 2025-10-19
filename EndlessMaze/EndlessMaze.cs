@@ -7,9 +7,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+//using System.Text.Json.Serialization; // Thư viện này cần thiết cho tính năng Lưu/Tải Game (nhiệm vụ của Linh)
+using EndlessMaze.Tri; // ĐÃ CẬP NHẬT: Thay thế Main.Tri bằng EndlessMaze.Tri
 
 namespace EndlessMaze
 {
+    // Các lớp Player, Monster, Maze, MazeGenerator, GameData đã được chuyển sang các file riêng biệt.
+
     public partial class EndlessMaze : Form
     {
         // =================================================================
@@ -17,14 +21,35 @@ namespace EndlessMaze
         // =================================================================
 
         private Timer gameTimer; // Timer chính điều khiển game loop
-        private Player player; // Đối tượng người chơi
-        private List<Monster> monsters; // Danh sách quái vật
-        private Maze gameMaze; // Đối tượng mê cung
+        private Player player; // Đối tượng người chơi (Được định nghĩa trong Character.cs)
+        private List<Monster> monsters; // Danh sách quái vật (Được định nghĩa trong Character.cs)
+        private Maze gameMaze; // Đối tượng mê cung (Được định nghĩa trong Maze.cs)
         private GameState currentGameState; // Trạng thái hiện tại của game
 
         // Biến theo dõi trạng thái input của người chơi
         private bool isMovingUp, isMovingDown, isMovingLeft, isMovingRight;
-        private bool isAttacking, isDashing;
+        private bool isAttacking;
+
+        // >>> BIẾN LOGIC CHO TẤN CÔNG (ATTACK)
+        private DateTime lastAttackTime = DateTime.MinValue;
+        private const int ATTACK_COOLDOWN_MS = 500;
+        private const int ATTACK_DAMAGE = 20;
+        private const int ATTACK_RANGE = 40;
+        private Rectangle attackHitbox;
+        // <<< BIẾN LOGIC CHO TẤN CÔNG (ATTACK)
+
+        // >>> DASH VÀ STAMINA (THỂ LỰC)
+        private bool isDashing;
+        private DateTime lastDashTime = DateTime.MinValue;
+        private const int DASH_COOLDOWN_MS = 2000;
+        private const int DASH_DURATION_MS = 100;
+        private const int DASH_SPEED_MULTIPLIER = 3;
+        private const int DASH_STAMINA_COST = 25;
+
+        // BIẾN MÊ CUNG VÀ KÍCH THƯỚC Ô
+        private const int TILE_SIZE = 40;
+        private Point endPosition;
+        // <<< DASH VÀ STAMINA (THỂ LỰC)
 
         private int score;
         private int level;
@@ -72,6 +97,9 @@ namespace EndlessMaze
             this.KeyDown += EndlessMaze_KeyDown;
             this.KeyUp += EndlessMaze_KeyUp;
 
+            // Khởi tạo hitbox tấn công rỗng ban đầu
+            attackHitbox = Rectangle.Empty;
+
             // Chuyển về màn hình chính
             SwitchGameState(GameState.MainMenu);
         }
@@ -96,6 +124,7 @@ namespace EndlessMaze
             {
                 case GameState.MainMenu:
                     pnlMainMenu.Visible = true;
+                    gameTimer.Stop();
                     break;
                 case GameState.Playing:
                     pnlGameUI.Visible = true;
@@ -119,9 +148,20 @@ namespace EndlessMaze
             level = 1;
             levelStartTime = DateTime.Now;
             timeElapsed = TimeSpan.Zero;
+            lastAttackTime = DateTime.MinValue;
+            lastDashTime = DateTime.MinValue;
 
             // Khởi tạo người chơi
-            player = new Player { X = 50, Y = 50, Health = 100, MaxHealth = 100, Speed = 5 };
+            player = new Player
+            {
+                X = 50,
+                Y = 50,
+                Health = 100,
+                MaxHealth = 100,
+                Speed = 5,
+                Stamina = 100,
+                MaxStamina = 100
+            };
 
             // Khởi tạo mê cung và quái vật
             GenerateLevel();
@@ -134,21 +174,48 @@ namespace EndlessMaze
 
         private void GenerateLevel()
         {
-            // Đây là nơi để gọi thuật toán tạo mê cung ngẫu nhiên
-            // Tạm thời, chúng ta sẽ tạo một mê cung đơn giản
-            gameMaze = new Maze(pbGameCanvas.Width, pbGameCanvas.Height);
+            // TÍNH TOÁN KÍCH THƯỚC MÊ CUNG DỰA TRÊN TILE_SIZE
+            int cols = pbGameCanvas.Width / TILE_SIZE;
+            int rows = pbGameCanvas.Height / TILE_SIZE;
+
+            // KHỞI TẠO VÀ TẠO MÊ CUNG NGẪU NHIÊN
+            gameMaze = new Maze(rows, cols, TILE_SIZE);
+
+            // Gọi thuật toán Recursive Backtracking
+            gameMaze.MazeData = MazeGenerator.GenerateMaze(rows, cols, out Point startTile, out Point endTile);
+
+            // ĐẶT VỊ TRÍ NGƯỜI CHƠI VÀ ĐÍCH ĐẾN
+            // Vị trí người chơi (căn giữa trong ô bắt đầu)
+            player.X = startTile.X * TILE_SIZE + (TILE_SIZE - player.Width) / 2;
+            player.Y = startTile.Y * TILE_SIZE + (TILE_SIZE - player.Height) / 2;
+
+            // Vị trí kết thúc
+            endPosition = new Point(endTile.X * TILE_SIZE, endTile.Y * TILE_SIZE);
 
             // Tạo quái vật dựa trên level hiện tại
             monsters = new List<Monster>();
             Random rand = new Random();
-            int monsterCount = 3 + level; // Càng lên level cao, càng nhiều quái
+            int monsterCount = 3 + level * 2;
+
             for (int i = 0; i < monsterCount; i++)
             {
+                int mx, my;
+                // Đảm bảo quái vật không đặt ở tường, điểm bắt đầu hoặc điểm kết thúc
+                do
+                {
+                    mx = rand.Next(1, cols - 1);
+                    my = rand.Next(1, rows - 1);
+                } while (gameMaze.MazeData[my, mx] == 1 ||
+                         (mx == startTile.X && my == startTile.Y) ||
+                         (mx == endTile.X && my == endTile.Y));
+
                 monsters.Add(new Monster
                 {
-                    X = rand.Next(100, pbGameCanvas.Width - 100),
-                    Y = rand.Next(100, pbGameCanvas.Height - 100),
-                    Health = 20 + (level * 5) // Máu quái tăng theo level
+                    X = mx * TILE_SIZE + (TILE_SIZE - 30) / 2, // Căn giữa quái vật trong ô
+                    Y = my * TILE_SIZE + (TILE_SIZE - 30) / 2,
+                    Health = 20 + (level * 5),
+                    MaxHealth = 20 + (level * 5),
+                    Speed = 2 + (level / 2)
                 });
             }
         }
@@ -186,61 +253,161 @@ namespace EndlessMaze
 
         private void UpdatePlayerState()
         {
-            // Xử lý di chuyển
-            if (isMovingUp) player.Y -= player.Speed;
-            if (isMovingDown) player.Y += player.Speed;
-            if (isMovingLeft) player.X -= player.Speed;
-            if (isMovingRight) player.X += player.Speed;
+            int oldX = player.X;
+            int oldY = player.Y;
+            int baseSpeed = player.Speed;
 
-            // Giới hạn di chuyển trong canvas
-            player.X = Math.Max(0, Math.Min(pbGameCanvas.Width - 30, player.X));
-            player.Y = Math.Max(0, Math.Min(pbGameCanvas.Height - 30, player.Y));
-
-            // Xử lý Lướt (Dash)
+            // LOGIC DASH: Áp dụng tốc độ lướt nếu đang trong thời gian Dash
             if (isDashing)
             {
-                // TODO: Thêm logic cho kỹ năng lướt
-                // Ví dụ: tăng tốc độ trong một khoảng thời gian ngắn
-                isDashing = false; // Tạm thời reset ngay lập tức
+                if ((DateTime.Now - lastDashTime).TotalMilliseconds < DASH_DURATION_MS)
+                {
+                    baseSpeed *= DASH_SPEED_MULTIPLIER;
+                }
+                else
+                {
+                    isDashing = false; // Kết thúc Dash
+                }
             }
 
-            // Xử lý Tấn công
-            if (isAttacking)
+            // Tính toán vị trí tiếp theo tiềm năng
+            int nextX = oldX;
+            int nextY = oldY;
+            if (isMovingUp) nextY -= baseSpeed;
+            if (isMovingDown) nextY += baseSpeed;
+            if (isMovingLeft) nextX -= baseSpeed;
+            if (isMovingRight) nextX += baseSpeed;
+
+            // XỬ LÝ VA CHẠM TƯỜNG (SLIDE MOVEMENT)
+
+            // 1. Thử di chuyển theo X và kiểm tra va chạm tường
+            player.X = nextX;
+            if (gameMaze.CheckWallCollision(player.GetBounds()))
             {
-                // TODO: Thêm logic tấn công, tạo vùng sát thương
-                isAttacking = false; // Tạm thời reset ngay lập tức
+                player.X = oldX; // Giữ nguyên X nếu va chạm
+            }
+
+            // 2. Thử di chuyển theo Y và kiểm tra va chạm tường
+            player.Y = nextY;
+            if (gameMaze.CheckWallCollision(player.GetBounds()))
+            {
+                player.Y = oldY; // Giữ nguyên Y nếu va chạm
+            }
+
+            // Giới hạn di chuyển trong canvas (va chạm tường biên)
+            player.X = Math.Max(0, Math.Min(pbGameCanvas.Width - player.Width, player.X));
+            player.Y = Math.Max(0, Math.Min(pbGameCanvas.Height - player.Height, player.Y));
+
+            // LOGIC HỒI PHỤC THỂ LỰC (STAMINA)
+            if (!isDashing && player.Stamina < player.MaxStamina)
+            {
+                // Hồi 1 điểm Stamina mỗi tick (~60/s)
+                player.Stamina = Math.Min(player.MaxStamina, player.Stamina + 1);
+            }
+
+            // LOGIC XỬ LÝ TẤN CÔNG VÀ HỒI CHIÊU
+            attackHitbox = Rectangle.Empty; // Reset vùng tấn công mỗi tick
+            TimeSpan timeSinceLastAttack = DateTime.Now - lastAttackTime;
+
+            if (isAttacking && timeSinceLastAttack.TotalMilliseconds >= ATTACK_COOLDOWN_MS)
+            {
+                lastAttackTime = DateTime.Now;
+
+                // Xác định vùng tấn công hình vuông (tạm thời)
+                int hitboxSize = player.Width + ATTACK_RANGE;
+                attackHitbox = new Rectangle(
+                    player.X + player.Width / 2 - hitboxSize / 2,
+                    player.Y + player.Height / 2 - hitboxSize / 2,
+                    hitboxSize,
+                    hitboxSize
+                );
+                isAttacking = false;
+            }
+            else if (isAttacking)
+            {
+                isAttacking = false; // Reset cờ nếu đang hồi chiêu
             }
         }
 
         private void UpdateMonsterState()
         {
-            // AI đơn giản: di chuyển về phía người chơi
+            // AI đơn giản: di chuyển về phía người chơi (Đã cập nhật kiểm tra va chạm tường)
             foreach (var monster in monsters)
             {
-                if (monster.X < player.X) monster.X += monster.Speed;
-                if (monster.X > player.X) monster.X -= monster.Speed;
-                if (monster.Y < player.Y) monster.Y += monster.Speed;
-                if (monster.Y > player.Y) monster.Y -= monster.Speed;
+                int nextX = monster.X;
+                int nextY = monster.Y;
+
+                // Tính toán vị trí tiếp theo tiềm năng
+                if (monster.X < player.X) nextX += monster.Speed;
+                else if (monster.X > player.X) nextX -= monster.Speed;
+
+                if (monster.Y < player.Y) nextY += monster.Speed;
+                else if (monster.Y > player.Y) nextY -= monster.Speed;
+
+                // Thử di chuyển X và kiểm tra va chạm tường
+                Rectangle nextBoundsX = new Rectangle(nextX, monster.Y, monster.Width, monster.Height);
+                if (!gameMaze.CheckWallCollision(nextBoundsX))
+                {
+                    monster.X = nextX;
+                }
+
+                // Thử di chuyển Y và kiểm tra va chạm tường
+                Rectangle nextBoundsY = new Rectangle(monster.X, nextY, monster.Width, monster.Height);
+                if (!gameMaze.CheckWallCollision(nextBoundsY))
+                {
+                    monster.Y = nextY;
+                }
             }
         }
 
         private void HandleCollisions()
         {
-            // TODO: Xử lý va chạm giữa người chơi và quái, người chơi và bẫy, đạn và mục tiêu...
+            // 1. Va chạm Tấn công (Player Attack -> Monster)
+            if (attackHitbox != Rectangle.Empty)
+            {
+                for (int i = monsters.Count - 1; i >= 0; i--)
+                {
+                    Monster monster = monsters[i];
+
+                    if (attackHitbox.IntersectsWith(monster.GetBounds()))
+                    {
+                        monster.Health -= ATTACK_DAMAGE; // Quái bị trúng đòn
+
+                        if (monster.Health <= 0)
+                        {
+                            monsters.RemoveAt(i);
+                            score += 10; // Tăng điểm
+                        }
+                    }
+                }
+            }
+
+            // 2. Va chạm Quái vật -> Người chơi (Monster -> Player)
+            for (int i = 0; i < monsters.Count; i++)
+            {
+                if (player.GetBounds().IntersectsWith(monsters[i].GetBounds()))
+                {
+                    // Người chơi mất máu khi chạm vào quái
+                    player.Health -= 1;
+                }
+            }
         }
 
         private void CheckGameConditions()
         {
-            // TODO: Kiểm tra nếu người chơi hết máu -> GameOver
+            // Kiểm tra nếu người chơi hết máu -> GameOver
             if (player.Health <= 0)
             {
                 SwitchGameState(GameState.GameOver);
             }
 
-            // TODO: Kiểm tra nếu tất cả quái đã bị tiêu diệt -> Qua màn
-            if (monsters.Count == 0)
+            // Kiểm tra nếu người chơi chạm đến đích (End Position)
+            Rectangle playerBounds = player.GetBounds();
+            Rectangle endBounds = new Rectangle(endPosition.X, endPosition.Y, TILE_SIZE, TILE_SIZE);
+            if (playerBounds.IntersectsWith(endBounds))
             {
                 level++;
+                score += 100; // Thưởng điểm khi hoàn thành màn
                 GenerateLevel();
                 levelStartTime = DateTime.Now; // Reset thời gian cho màn mới
             }
@@ -248,7 +415,8 @@ namespace EndlessMaze
 
         private void UpdateUI()
         {
-            lblPlayerHP.Text = $"HP: {player.Health} / {player.MaxHealth}";
+            // Cập nhật hiển thị Stamina (Thể lực)
+            lblPlayerHP.Text = $"HP: {player.Health} / {player.MaxHealth} | Thể lực: {player.Stamina}";
             progPlayerHP.Maximum = player.MaxHealth;
             progPlayerHP.Value = Math.Max(0, player.Health);
             lblScore.Text = "Điểm: " + score;
@@ -269,8 +437,14 @@ namespace EndlessMaze
             // Xóa canvas với màu nền
             g.Clear(Color.FromArgb(24, 24, 24));
 
-            // Vẽ mê cung (nếu có)
-            gameMaze?.Draw(g);
+            // Vẽ mê cung và Cổng kết thúc
+            gameMaze?.Draw(g, endPosition);
+
+            // Vẽ vùng tấn công (để debug)
+            if (attackHitbox != Rectangle.Empty)
+            {
+                g.FillEllipse(new SolidBrush(Color.FromArgb(50, Color.Yellow)), attackHitbox);
+            }
 
             // Vẽ quái vật
             foreach (var monster in monsters)
@@ -280,6 +454,9 @@ namespace EndlessMaze
 
             // Vẽ người chơi
             player?.Draw(g);
+
+            // Vẽ thanh Stamina
+            player?.DrawStamina(g);
         }
 
 
@@ -310,7 +487,14 @@ namespace EndlessMaze
                     isMovingRight = true;
                     break;
                 case Keys.Space:
-                    isDashing = true;
+                    // LOGIC DASH CÓ HỒI CHIÊU VÀ THỂ LỰC
+                    TimeSpan timeSinceLastDash = DateTime.Now - lastDashTime;
+                    if (!isDashing && timeSinceLastDash.TotalMilliseconds >= DASH_COOLDOWN_MS && player.Stamina >= DASH_STAMINA_COST)
+                    {
+                        isDashing = true;
+                        lastDashTime = DateTime.Now;
+                        player.Stamina -= DASH_STAMINA_COST;
+                    }
                     break;
                 case Keys.J: // Nút đánh thường
                     isAttacking = true;
@@ -343,6 +527,16 @@ namespace EndlessMaze
             }
         }
 
+        private void pbGameCanvas_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void EndlessMaze_Load(object sender, EventArgs e)
+        {
+
+        }
+
         private void btnStartGame_Click(object sender, EventArgs e)
         {
             SwitchGameState(GameState.Playing);
@@ -356,68 +550,6 @@ namespace EndlessMaze
         private void btnBackToMenu_Click(object sender, EventArgs e)
         {
             SwitchGameState(GameState.MainMenu);
-        }
-    }
-
-    // =================================================================
-    // CÁC LỚP ĐẠI DIỆN CHO ĐỐI TƯỢNG GAME
-    // (Để đơn giản, tôi định nghĩa chúng trong cùng một file)
-    // =================================================================
-
-    public abstract class GameObject
-    {
-        public int X { get; set; }
-        public int Y { get; set; }
-        public int Width { get; set; } = 30;
-        public int Height { get; set; } = 30;
-        public abstract void Draw(Graphics g);
-    }
-
-    public class Player : GameObject
-    {
-        public int Health { get; set; }
-        public int MaxHealth { get; set; }
-        public int Speed { get; set; }
-
-        public override void Draw(Graphics g)
-        {
-            // Vẽ người chơi là một hình chữ nhật màu xanh
-            g.FillRectangle(Brushes.DodgerBlue, X, Y, Width, Height);
-            // Vẽ thanh máu trên đầu
-            g.FillRectangle(Brushes.Red, X, Y - 10, Width, 5);
-            int healthWidth = (int)((double)Health / MaxHealth * Width);
-            g.FillRectangle(Brushes.Green, X, Y - 10, healthWidth, 5);
-        }
-    }
-
-    public class Monster : GameObject
-    {
-        public int Health { get; set; }
-        public int Speed { get; set; } = 2;
-
-        public override void Draw(Graphics g)
-        {
-            // Vẽ quái là một hình chữ nhật màu đỏ
-            g.FillRectangle(Brushes.IndianRed, X, Y, Width, Height);
-        }
-    }
-
-    public class Maze
-    {
-        // TODO: Thêm logic tạo và lưu trữ dữ liệu mê cung
-        private int width;
-        private int height;
-        public Maze(int w, int h)
-        {
-            width = w;
-            height = h;
-        }
-
-        public void Draw(Graphics g)
-        {
-            // Vẽ các bức tường của mê cung
-            // Tạm thời chỉ vẽ một đường viền xung quanh
-            g.DrawRectangle(Pens.Gray, 0, 0, width - 1, height - 1);
         }
     }
 }

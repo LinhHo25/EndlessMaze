@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-
+using Main.Tri;
 namespace Main
 {
     // Đổi tên lớp từ Form1 thành frmMain để dễ quản lý
@@ -60,6 +60,11 @@ namespace Main
         {
             // Đóng ứng dụng
             Application.Exit();
+        }
+
+        private void frmMain_Load(object sender, EventArgs e)
+        {
+
         }
     }
 }

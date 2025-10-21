@@ -46,11 +46,53 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="frmdangky.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmdangky.Designer.cs">
+      <DependentUpon>frmdangky.cs</DependentUpon>
+    </Compile>
+    <Compile Include="frmLeaderboard.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmLeaderboard.Designer.cs">
+      <DependentUpon>frmLeaderboard.cs</DependentUpon>
+    </Compile>
+    <Compile Include="frmLoadPlay.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmLoadPlay.Designer.cs">
+      <DependentUpon>frmLoadPlay.cs</DependentUpon>
+    </Compile>
     <Compile Include="frmMain.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="frmMain.Designer.cs">
       <DependentUpon>frmMain.cs</DependentUpon>
+    </Compile>
+    <Compile Include="frmPlay.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmPlay.Designer.cs">
+      <DependentUpon>frmPlay.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Map\Flame.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Map\Flame.Designer.cs">
+      <DependentUpon>Flame.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Map\Poison.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Map\Poison.Designer.cs">
+      <DependentUpon>Poison.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Map\Water.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Map\Water.Designer.cs">
+      <DependentUpon>Water.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -58,8 +100,26 @@
     <Compile Include="Tri\GameObject.cs" />
     <Compile Include="Tri\MazeGenerator.cs" />
     <Compile Include="Tri\Player.cs" />
+    <EmbeddedResource Include="frmdangky.resx">
+      <DependentUpon>frmdangky.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmLeaderboard.resx">
+      <DependentUpon>frmLeaderboard.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmLoadPlay.resx">
+      <DependentUpon>frmLoadPlay.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="frmMain.resx">
       <DependentUpon>frmMain.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmPlay.resx">
+      <DependentUpon>frmPlay.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Map\Poison.resx">
+      <DependentUpon>Poison.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Map\Water.resx">
+      <DependentUpon>Water.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -83,5 +143,6 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

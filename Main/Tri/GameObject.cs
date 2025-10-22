@@ -26,6 +26,18 @@ namespace Main.Tri // Đã cập nhật namespace theo yêu cầu
         public int Height { get; protected set; } // Chiều cao
         public GameObjectType Type { get; protected set; } // Loại đối tượng
 
+        // --- THUỘC TÍNH THÊM VÀO ĐỂ TƯƠNG THÍCH ---
+        public PointF Position
+        {
+            get { return new PointF(X, Y); }
+            set { X = value.X; Y = value.Y; }
+        }
+        public RectangleF BoundingBox
+        {
+            get { return GetBounds(); }
+        }
+        // ------------------------------------------
+
         public GameObject(float x, float y, int width, int height, GameObjectType type)
         {
             X = x;
@@ -75,3 +87,4 @@ namespace Main.Tri // Đã cập nhật namespace theo yêu cầu
         }
     }
 }
+

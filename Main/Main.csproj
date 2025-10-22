@@ -99,6 +99,7 @@
     <Compile Include="Tri\GameManager.cs" />
     <Compile Include="Tri\GameObject.cs" />
     <Compile Include="Tri\MazeGenerator.cs" />
+    <Compile Include="Tri\Monster.cs" />
     <Compile Include="Tri\Player.cs" />
     <EmbeddedResource Include="frmdangky.resx">
       <DependentUpon>frmdangky.cs</DependentUpon>
@@ -139,6 +140,7 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
+    <None Include="Tri\GameObjects.cs %28NEU%29" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

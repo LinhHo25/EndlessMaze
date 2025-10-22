@@ -1,20 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
+using Main.Map; // <- THÊM using này để truy cập các Map
+using Main.Tri; // <- THÊM using này để truy cập GameLogic
 
 namespace Main
 {
     public partial class frmPlay : Form
     {
         private frmMain _mainForm;
+        private Random rand = new Random(); // Biến random
 
-        // Constructor mới nhận tham chiếu đến frmMain
         public frmPlay(frmMain mainForm)
         {
             InitializeComponent();
@@ -22,29 +17,61 @@ namespace Main
             this.Text = "Chọn Chế Độ Chơi";
         }
 
-        // Constructor cũ (giữ lại nếu cần)
         public frmPlay()
         {
             InitializeComponent();
         }
 
+        // SỰ KIỆN NÚT "CHƠI MỚI" (ĐÃ CẬP NHẬT)
+        private void btnNewGame_Click(object sender, EventArgs e)
+        {
+            // Random một số từ 0 đến 2
+            int mapIndex = rand.Next(0, 3); // 0, 1, hoặc 2
+            Form mapToPlay;
+
+            switch (mapIndex)
+            {
+                case 0:
+                    mapToPlay = new Water();
+                    break;
+                case 1:
+                    mapToPlay = new Flame();
+                    break;
+                case 2:
+                default:
+                    mapToPlay = new Poison();
+                    break;
+            }
+
+            // Bắt đầu map đã random
+            StartMap(mapToPlay);
+        }
+
+        // SỰ KIỆN NÚT "CHƠI TIẾP" (MỚI)
+        private void btnContinue_Click(object sender, EventArgs e)
+        {
+            // Tạm thời: Logic "Chơi tiếp" sẽ load lượt chơi gần nhất
+            // Bạn có thể thay đổi logic này
+            MessageBox.Show("Tính năng 'Chơi tiếp' đang được phát triển. Vui lòng 'Tải lượt chơi' thủ công.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+            // Hoặc, bạn có thể gọi thẳng BtnLoad_Click
+            // BtnLoad_Click(sender, e);
+        }
+
         // Sự kiện click cho nút "Tải Lượt Chơi Đã Lưu"
         private void BtnLoad_Click(object sender, EventArgs e)
         {
-            // Ẩn form hiện tại
             this.Hide();
-
-            // Khởi tạo và hiển thị frmLoadPlay
-            // Truyền tham chiếu frmMain để có thể quay lại menu chính
             frmLoadPlay loadPlayForm = new frmLoadPlay(_mainForm);
             loadPlayForm.Show();
         }
 
-        // Sự kiện click cho nút "Chơi Mới"
-        private void btnNewGame_Click(object sender, EventArgs e)
+        // Hàm chung để khởi chạy map
+        private void StartMap(Form mapForm)
         {
-            MessageBox.Show("Khởi tạo Game Mới...", "Game", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            // TẠI ĐÂY BẠN CÓ THỂ CHUYỂN ĐẾN FORM GAME CHÍNH (VÍ DỤ: frmGame)
+            this.Hide();
+            mapForm.ShowDialog();
+            this.Close(); // Tự đóng form này
         }
 
         // Sự kiện click cho nút "Quay Lại Menu"
@@ -63,3 +90,4 @@ namespace Main
         }
     }
 }
+

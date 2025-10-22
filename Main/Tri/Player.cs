@@ -1,15 +1,25 @@
 ﻿using System.Drawing;
 using System.Windows.Forms;
 
-namespace Main.Tri // Đã cập nhật namespace
+namespace Main.Tri
 {
     public class Player : GameObject
     {
-        // Trạng thái nhân vật
+        // --- CÁC THUỘC TÍNH MỚI CHO GAME HÀNH ĐỘNG ---
+        public float MaxHealth { get; set; } = 100;
+        public float CurrentHealth { get; set; } = 100;
+        public float MaxStamina { get { return 100f; } } // Giả lập MaxStamina
+        public float CurrentStamina { get { return this.Stamina; } set { this.Stamina = value; } } // Dùng Stamina cũ
+        public bool IsFallen { get; set; } = false;
+        public bool IsPoisoned { get; set; } = false;
+        public int DashCount { get; set; } = 0;
+        // ------------------------------------------
+
+        // --- CODE GỐC TỪ GAME MÊ CUNG ---
         private const float BASE_SPEED = 4.0f;
         private const float DASH_SPEED = 18.0f;
         private const int DASH_DURATION = 8; // Số frame lướt
-        private const float MAX_STAMINA = 100f;
+        private const float MAX_STAMINA = 100f; // Dùng hằng số này cho Stamina
         private const float DASH_COST = 40f;
         private const float STAMINA_REGEN = 0.5f;
 
@@ -27,6 +37,7 @@ namespace Main.Tri // Đã cập nhật namespace
 
         // Hướng di chuyển cuối cùng (để biết hướng lướt)
         private PointF lastMoveDirection = new PointF(0, 0);
+        // ----------------------------------
 
         public Player(float x, float y, int size) :
             base(x, y, size, size, GameObjectType.Player)
@@ -35,9 +46,6 @@ namespace Main.Tri // Đã cập nhật namespace
             MoveSpeed = BASE_SPEED;
         }
 
-        /// <summary>
-        /// Cập nhật logic di chuyển và lướt.
-        /// </summary>
         public override void Update()
         {
             // 1. Xử lý trạng thái Lướt (Dash)
@@ -68,13 +76,31 @@ namespace Main.Tri // Đã cập nhật namespace
                     dashTimer = DASH_DURATION;
                     // Tắt cờ Dash ngay sau khi kích hoạt để tránh lặp lại
                     AttemptDash = false;
+
+                    // --- THÊM DÒNG NÀY VÀO ---
+                    DashCount++;
+                    // --------------------------
                 }
             }
         }
 
-        /// <summary>
-        /// Trả về vector di chuyển dựa trên input và trạng thái Dash.
-        /// </summary>
+        // --- THÊM HÀM NÀY VÀO (để map gọi) ---
+        public void Dash()
+        {
+            this.AttemptDash = true;
+        }
+
+        // --- THÊM HÀM NÀY ĐỂ SỬA LỖI CS0200 ---
+        public void StopDash()
+        {
+            if (IsDashing)
+            {
+                dashTimer = 0;
+                MoveSpeed = BASE_SPEED;
+            }
+        }
+        // ------------------------------------
+
         public PointF GetMovementVector()
         {
             float dx = 0, dy = 0;
@@ -101,30 +127,41 @@ namespace Main.Tri // Đã cập nhật namespace
             return new PointF(dx * MoveSpeed, dy * MoveSpeed);
         }
 
-        /// <summary>
-        /// Vẽ nhân vật và thanh thể lực.
-        /// </summary>
         public override void Draw(Graphics g)
         {
             // Vẽ hình chữ nhật của Player
             Color playerColor = IsDashing ? Color.Cyan : Color.Blue;
+            if (IsFallen) playerColor = Color.Gray; // Màu khi bị ngã
+
             using (SolidBrush brush = new SolidBrush(playerColor))
             {
                 g.FillEllipse(brush, X, Y, Width, Height);
             }
 
-            // Vẽ Thanh Thể Lực (Stamina Bar) ngay trên đầu nhân vật
+            // Vẽ hiệu ứng độc
+            if (IsPoisoned)
+            {
+                using (Pen poisonPen = new Pen(Color.Purple, 2))
+                {
+                    g.DrawEllipse(poisonPen, X - 1, Y - 1, Width + 2, Height + 2);
+                }
+            }
+
+            // Vẽ Thanh Thể Lực (Stamina Bar)
             const int barWidth = 32;
             const int barHeight = 4;
             float barX = X;
-            float barY = Y - barHeight - 2;
+            float barY_Stamina = Y - barHeight - 2;
             float staminaRatio = Stamina / MAX_STAMINA;
+            g.FillRectangle(Brushes.Gray, barX, barY_Stamina, barWidth, barHeight);
+            g.FillRectangle(Brushes.LimeGreen, barX, barY_Stamina, barWidth * staminaRatio, barHeight);
 
-            // Vẽ nền thanh thể lực
-            g.FillRectangle(Brushes.Gray, barX, barY, barWidth, barHeight);
-
-            // Vẽ thể lực hiện tại
-            g.FillRectangle(Brushes.LimeGreen, barX, barY, barWidth * staminaRatio, barHeight);
+            // Vẽ Thanh Máu (Health Bar)
+            float barY_Health = Y - (barHeight * 2) - 4;
+            float healthRatio = CurrentHealth / MaxHealth;
+            g.FillRectangle(Brushes.DarkRed, barX, barY_Health, barWidth, barHeight);
+            g.FillRectangle(Brushes.Red, barX, barY_Health, barWidth * healthRatio, barHeight);
         }
     }
 }
+

@@ -1,0 +1,141 @@
+﻿using System.Drawing;
+
+namespace Main.Tri // <- Vẫn là Main.Tri
+{
+    // Enum để định nghĩa loại quái (Giữ lại)
+    public enum MonsterType
+    {
+        Water,
+        Flame,
+        Poison
+    }
+
+    // LỚP "GameObject" (abstract) ĐÃ BỊ XÓA
+    // (Vì bạn đã có file GameObject.cs định nghĩa lớp này)
+
+    // LỚP "Player" ĐÃ BỊ XÓA
+    // (Vì bạn đã có file Player.cs định nghĩa lớp này)
+
+
+    // ======================================================================
+    // QUAN TRỌNG:
+    // Bạn cần mở file "Player.cs" (file game mê cung của bạn)
+    // và THÊM CÁC THUỘC TÍNH NÀY vào để logic map hoạt động:
+    //
+    // public float MaxHealth { get; set; } = 100;
+    // public float CurrentHealth { get; set; } = 100;
+    // public bool IsFallen { get; set; } = false;
+    // public bool IsPoisoned { get; set; } = false;
+    //
+    // // Thêm 2 dòng này vào hàm Dash() hoặc hàm xử lý input Spacebar của bạn
+    // // public int DashCount { get; set; } = 0; // Thêm ở đầu class Player
+    // // DashCount++; // Thêm vào bên trong hàm xử lý Dash
+    // ======================================================================
+
+
+    // Lớp Quái (Sửa lại để kế thừa từ GameObject của bạn)
+    public class Monster : GameObject
+    {
+        public float MaxHealth { get; set; } = 50;
+        public float CurrentHealth { get; set; } = 50;
+        public float Damage { get; set; } = 10;
+        public float AttackSpeed { get; set; } = 1.0f; // Tấn công mỗi giây
+        public MonsterType Type { get; set; }
+
+        public Monster(MonsterType type, PointF startPos)
+            : base(startPos.X, startPos.Y, 25, 25, GameObjectType.Monster) // Gọi base constructor của bạn
+        {
+            Type = type;
+            // Kích thước (25, 25) và Tọa độ (X, Y) đã được set trong lệnh 'base(...)'
+            // GameObjectType.Monster cũng phải tồn tại trong enum GameObjectType của bạn
+
+            // Tùy chỉnh quái dựa trên loại map
+            switch (Type)
+            {
+                case MonsterType.Water:
+                    AttackSpeed = 0.7f; // Nhanh hơn (0.7s / đòn)
+                    Damage = 8;
+                    break;
+                case MonsterType.Flame:
+                    AttackSpeed = 1.2f;
+                    Damage = 15; // Dame to hơn
+                    break;
+                case MonsterType.Poison:
+                    AttackSpeed = 1.0f;
+                    Damage = 5; // Gây thêm độc
+                    break;
+            }
+        }
+
+        public void Attack(Player player)
+        {
+            // Giờ đây 'player' là class Player từ file Player.cs của bạn
+            // Bạn cần đảm bảo Player.cs có thuộc tính CurrentHealth và IsPoisoned
+            player.CurrentHealth -= this.Damage;
+            if (this.Type == MonsterType.Poison)
+            {
+                player.IsPoisoned = true;
+            }
+        }
+
+        public override void Draw(Graphics g)
+        {
+            Brush brush;
+            switch (Type)
+            {
+                case MonsterType.Water: brush = Brushes.Aqua; break;
+                case MonsterType.Flame: brush = Brushes.OrangeRed; break;
+                case MonsterType.Poison: brush = Brushes.Green; break;
+                default: brush = Brushes.Red; break;
+            }
+            // Dùng X, Y, Width, Height từ base class GameObject của bạn
+            g.FillEllipse(brush, X, Y, Width, Height);
+
+            // Vẽ thanh máu quái
+            g.FillRectangle(Brushes.Red, X, Y - 5, Width * (CurrentHealth / MaxHealth), 3);
+        }
+
+        // Ghi đè Update() nếu cần
+        public override void Update()
+        {
+            base.Update();
+            // Thêm logic AI của quái ở đây (ví dụ: di chuyển đuổi theo Player)
+        }
+    }
+
+    // Lớp Boss (kế thừa từ Quái đã sửa)
+    public class Boss : Monster
+    {
+        public Boss(MonsterType type, PointF startPos) 
+            : base(type, startPos)
+        {
+            // Ghi đè lại kích thước và máu
+            this.Width = 80;
+            this.Height = 80;
+            MaxHealth = 500;
+            CurrentHealth = 500;
+            Damage = base.Damage * 2; // Dame boss to gấp đôi
+        }
+
+        public void SpecialAttack(Player player)
+        {
+            // Thêm logic đòn đánh đặc biệt
+        }
+
+        public override void Draw(Graphics g)
+        {
+            // Vẽ Boss to hơn
+            Brush brush;
+            switch (Type)
+            {
+                case MonsterType.Water: brush = Brushes.DarkBlue; break;
+                case MonsterType.Flame: brush = Brushes.DarkRed; break;
+                case MonsterType.Poison: brush = Brushes.DarkGreen; break;
+                default: brush = Brushes.Black; break;
+            }
+            g.FillEllipse(brush, X, Y, Width, Height);
+            g.FillRectangle(Brushes.Red, X, Y - 5, Width * (CurrentHealth / MaxHealth), 5);
+        }
+    }
+}
+

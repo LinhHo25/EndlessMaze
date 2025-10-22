@@ -65,5 +65,10 @@ namespace Main
             // Đóng ứng dụng
             Application.Exit();
         }
+
+        private void frmMain_Load(object sender, EventArgs e)
+        {
+
+        }
     }
 }

@@ -1412,6 +1412,5 @@
     <Content Include="ImgSource\Structure\Torch\Torch_2\fire_animation2_8.png" />
     <Content Include="ImgSource\Structure\Torch\Torch_2\fire_animation2_9.png" />
   </ItemGroup>
-  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -48,6 +48,9 @@ namespace Main.Tri // Đã cập nhật namespace
             int startY = MazeGen.StartGridPosition.Y * TileSize;
             Player = new Player(startX, startY, TileSize - 4); // Nhỏ hơn Tile một chút để dễ va chạm
 
+            // TẢI ANIMATION CHO PLAYER (NẾU DÙNG GAMEMANAGER)
+            // Player.SetUpAnimations(); // Bạn có thể kích hoạt dòng này nếu cần
+
             // Thiết lập vị trí Kết thúc
             int exitX = MazeGen.EndGridPosition.X * TileSize;
             int exitY = MazeGen.EndGridPosition.Y * TileSize;
@@ -77,7 +80,11 @@ namespace Main.Tri // Đã cập nhật namespace
 
             // 1. Cập nhật Player (tính toán vector di chuyển)
             Player.Update();
-            PointF moveVector = Player.GetMovementVector();
+
+            // --- SỬA LỖI CS1061 TẠI ĐÂY ---
+            // Gọi đúng tên hàm mới từ Player.cs
+            PointF moveVector = Player.CalculateMovementVector(Player.Position);
+            // ------------------------------
 
             // 2. Xử lý Va chạm và Di chuyển
             HandlePlayerMovementAndCollision(moveVector);

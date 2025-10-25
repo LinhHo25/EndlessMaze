@@ -6,7 +6,8 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;using Main.Tri; // Thêm using để sử dụng các lớp logic
+using System.Windows.Forms;
+using Main.Tri; // Thêm using để sử dụng các lớp logic
 namespace Main
 {
     // Đổi tên lớp từ Form1 thành frmMain để dễ quản lý
@@ -19,9 +20,19 @@ namespace Main
             // Cấu hình ban đầu cho Form (ví dụ: kích thước, tiêu đề...)
             this.KeyPreview = true;
 
+            // --- ĐÃ VÔ HIỆU HÓA CODE TẢI BACKGROUND ---
             // Gợi ý: Để thêm hình nền, bạn có thể bỏ comment dòng dưới đây
             // và thay thế "your_image.jpg" bằng tên tệp hình ảnh của bạn.
             // Đừng quên thêm hình ảnh vào project và thiết lập "Copy to Output Directory".
+
+            /* (Phần code background của bạn đã được vô hiệu hóa)
+            if (System.IO.File.Exists("bunm.jpg"))
+            {
+                this.BackgroundImage = Image.FromFile("bunm.jpg");
+            }
+            this.BackgroundImageLayout = ImageLayout.Stretch;
+            */
+
             // try
             // {
             //     this.BackgroundImage = Image.FromFile("your_image.jpg");
@@ -64,11 +75,6 @@ namespace Main
         {
             // Đóng ứng dụng
             Application.Exit();
-        }
-
-        private void frmMain_Load(object sender, EventArgs e)
-        {
-
         }
     }
 }

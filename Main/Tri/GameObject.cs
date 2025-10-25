@@ -1,18 +1,19 @@
 ﻿using System.Drawing;
 
-namespace Main.Tri // Đã cập nhật namespace theo yêu cầu
+namespace Main.Tri
 {
     /// <summary>
     /// Định nghĩa các loại đối tượng trong game.
     /// </summary>
     public enum GameObjectType
     {
-        Wall = 1,    // Tường
-        Floor = 0,   // Sàn (Đường đi)
-        Player = 2,  // Người chơi
-        Exit = 3,    // Điểm kết thúc
-        Monster = 4, // Quái vật
-        TileSize = 32 // Kích thước tile mặc định (để tiện vẽ)
+        Wall = 1,
+        Floor = 0,
+        Player = 2,
+        Exit = 3,
+        Monster = 4,
+        Item = 5,    // <-- THÊM DÒNG NÀY
+        TileSize = 32
     }
 
     /// <summary>
@@ -20,11 +21,11 @@ namespace Main.Tri // Đã cập nhật namespace theo yêu cầu
     /// </summary>
     public class GameObject
     {
-        public float X { get; set; }        // Tọa độ X (thực)
-        public float Y { get; set; }        // Tọa độ Y (thực)
-        public int Width { get; protected set; }  // Chiều rộng
-        public int Height { get; protected set; } // Chiều cao
-        public GameObjectType Type { get; protected set; } // Loại đối tượng
+        public float X { get; set; }
+        public float Y { get; set; }
+        public int Width { get; protected set; }
+        public int Height { get; protected set; }
+        public GameObjectType Type { get; protected set; }
 
         // --- THUỘC TÍNH THÊM VÀO ĐỂ TƯƠNG THÍCH ---
         public PointF Position
@@ -69,13 +70,14 @@ namespace Main.Tri // Đã cập nhật namespace theo yêu cầu
         public virtual void Draw(Graphics g)
         {
             // Mặc định, vẽ một hình chữ nhật màu dựa trên loại đối tượng
-            Color color = Color.Magenta;
+            Color color = Color.Magenta; // Màu mặc định nếu thiếu
             switch (Type)
             {
                 case GameObjectType.Wall: color = Color.SaddleBrown; break;
                 case GameObjectType.Player: color = Color.Blue; break;
                 case GameObjectType.Exit: color = Color.Gold; break;
                 case GameObjectType.Monster: color = Color.Red; break;
+                case GameObjectType.Item: color = Color.Yellow; break; // Màu cho Item (có thể đổi)
             }
             using (SolidBrush brush = new SolidBrush(color))
             {
@@ -87,4 +89,3 @@ namespace Main.Tri // Đã cập nhật namespace theo yêu cầu
         }
     }
 }
-

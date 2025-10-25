@@ -46,7 +46,7 @@ namespace Main
             this.lblTitle.Font = new System.Drawing.Font("Segoe UI", 16F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblTitle.Location = new System.Drawing.Point(50, 40);
             this.lblTitle.Name = "lblTitle";
-            this.lblTitle.Size = new System.Drawing.Size(306, 37);
+            this.lblTitle.Size = new System.Drawing.Size(327, 37);
             this.lblTitle.TabIndex = 0;
             this.lblTitle.Text = "ĐĂNG NHẬP HỆ THỐNG";
             // 
@@ -56,7 +56,7 @@ namespace Main
             this.lblUsername.Font = new System.Drawing.Font("Segoe UI", 10.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblUsername.Location = new System.Drawing.Point(52, 100);
             this.lblUsername.Name = "lblUsername";
-            this.lblUsername.Size = new System.Drawing.Size(126, 23);
+            this.lblUsername.Size = new System.Drawing.Size(128, 23);
             this.lblUsername.TabIndex = 1;
             this.lblUsername.Text = "Tên đăng nhập:";
             // 
@@ -125,6 +125,7 @@ namespace Main
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Đăng Nhập / Đăng Ký Tài Khoản";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.frmDangKy_FormClosed);
+           
             this.ResumeLayout(false);
             this.PerformLayout();
 

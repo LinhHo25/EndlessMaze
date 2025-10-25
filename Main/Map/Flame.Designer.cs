@@ -59,7 +59,7 @@
             this.Name = "Flame";
             this.Text = "Flame";
             this.Load += new System.EventHandler(this.Flame_Load);
-            
+
             this.ResumeLayout(false);
 
         }
@@ -72,4 +72,3 @@
         private System.Windows.Forms.Timer timerSweat;
     }
 }
-

@@ -4,7 +4,7 @@ using System;
 
 namespace Main.Tri
 {
-    // Định nghĩa các loại quái
+    // Định nghĩa các loại quái (Giữ nguyên)
     public enum MonsterType
     {
         Water,
@@ -17,13 +17,13 @@ namespace Main.Tri
     {
         public MonsterType MonsterClass { get; private set; }
         public float Health { get; set; }
-        // SỬA LỖI CS0273: Thay 'private set' thành 'protected set'
         public float AttackDamage { get; protected set; }
         public float AttackSpeed { get; protected set; } // Tốc độ đánh
         public float MoveSpeed { get; protected set; }
 
         private PointF spawnPoint; // Vị trí gốc
-        private float patrolRadius = 50f; // Phạm vi di chuyển
+        private float patrolRadius = 150f; // Tầm di chuyển (tăng lên)
+        private float detectionRadius = 250f; // Tầm phát hiện người chơi
         private PointF targetPosition; // Vị trí đang di chuyển tới
         private Random rand = new Random();
 
@@ -40,47 +40,66 @@ namespace Main.Tri
                 case MonsterType.Water:
                     Health = 80;
                     AttackDamage = 10;
-                    AttackSpeed = 1.5f; // Đánh nhanh hơn
-                    MoveSpeed = 3.0f;
+                    AttackSpeed = 1.5f;
+                    MoveSpeed = 2.0f; // Quái di chuyển chậm hơn Player
                     break;
                 case MonsterType.Flame:
                     Health = 120;
-                    AttackDamage = 20; // Dame to hơn
+                    AttackDamage = 20;
                     AttackSpeed = 1.0f;
-                    MoveSpeed = 2.0f;
+                    MoveSpeed = 1.5f;
                     break;
                 case MonsterType.Poison:
                     Health = 100;
-                    AttackDamage = 5; // Gây độc (logic trong hàm Attack)
+                    AttackDamage = 5;
                     AttackSpeed = 1.2f;
-                    MoveSpeed = 2.5f;
+                    MoveSpeed = 1.8f;
                     break;
             }
         }
 
+        /// <summary>
+        /// Hàm Update mới: Chỉ cập nhật logic, KHÔNG di chuyển
+        /// </summary>
         public override void Update()
         {
-            // CẬP NHẬT LOGIC DI CHUYỂN
-            // Đơn giản: Di chuyển ngẫu nhiên quanh điểm spawn
-
-            float distanceToTarget = (float)Math.Sqrt(Math.Pow(Position.X - targetPosition.X, 2) + Math.Pow(Position.Y - targetPosition.Y, 2));
-
-            // Nếu đã đến gần mục tiêu, chọn mục tiêu mới
-            if (distanceToTarget < MoveSpeed)
-            {
-                GetNewPatrolPoint();
-            }
-
-            // Di chuyển về phía mục tiêu
-            float angle = (float)Math.Atan2(targetPosition.Y - Position.Y, targetPosition.X - Position.X);
-            float vx = (float)Math.Cos(angle) * MoveSpeed;
-            float vy = (float)Math.Sin(angle) * MoveSpeed;
-
-            // TODO: Thêm xử lý va chạm tường cho quái
-            Position = new PointF(Position.X + vx, Position.Y + vy);
+            // (Hiện tại hàm này trống, bạn có thể thêm logic animation cho quái ở đây sau)
         }
 
-        // Lấy 1 điểm ngẫu nhiên trong phạm vi
+        /// <summary>
+        /// Hàm tính toán AI và trả về vector di chuyển mong muốn
+        /// </summary>
+        public PointF CalculateMovementVector(PointF playerPosition)
+        {
+            float distanceToPlayer = GetDistance(this.Position, playerPosition);
+
+            // 1. Nếu thấy người chơi -> đuổi theo
+            if (distanceToPlayer < detectionRadius)
+            {
+                targetPosition = playerPosition;
+            }
+            // 2. Nếu không thấy người chơi, đi tuần tra
+            else
+            {
+                float distanceToTarget = GetDistance(this.Position, targetPosition);
+                // Nếu đã đến gần mục tiêu tuần tra, chọn mục tiêu mới
+                if (distanceToTarget < MoveSpeed * 2)
+                {
+                    GetNewPatrolPoint();
+                }
+            }
+
+            // Tính toán vector di chuyển về phía mục tiêu
+            float angle = (float)Math.Atan2(targetPosition.Y - Position.Y, targetPosition.X - Position.X);
+            float vx = (float)Math.Cos(angle);
+            float vy = (float)Math.Sin(angle);
+
+            // Trả về vector đã chuẩn hóa (chưa nhân tốc độ)
+            // (Việc nhân tốc độ và va chạm sẽ do file Map xử lý)
+            return new PointF(vx * MoveSpeed, vy * MoveSpeed);
+        }
+
+        // Lấy 1 điểm ngẫu nhiên trong phạm vi tuần tra
         private void GetNewPatrolPoint()
         {
             float angle = (float)(rand.NextDouble() * 2 * Math.PI);
@@ -88,6 +107,12 @@ namespace Main.Tri
             float x = spawnPoint.X + (float)Math.Cos(angle) * radius;
             float y = spawnPoint.Y + (float)Math.Sin(angle) * radius;
             targetPosition = new PointF(x, y);
+        }
+
+        // Hàm tiện ích tính khoảng cách
+        private float GetDistance(PointF p1, PointF p2)
+        {
+            return (float)Math.Sqrt(Math.Pow(p1.X - p2.X, 2) + Math.Pow(p1.Y - p2.Y, 2));
         }
 
         public void Attack(Player player)
@@ -112,6 +137,7 @@ namespace Main.Tri
             {
                 g.FillRectangle(brush, BoundingBox);
             }
+            // (Bạn có thể thêm thanh máu cho quái ở đây)
         }
     }
 
@@ -121,13 +147,11 @@ namespace Main.Tri
         public Boss(MonsterType type, PointF startPosition)
             : base(type, startPosition)
         {
-            // Tăng chỉ số cho Boss
             this.Health *= 3;
-            this.AttackDamage *= 2; // Giờ đã có thể truy cập
-
-            // SỬA LỖI CS0200: Gán Width và Height thay vì BoundingBox
+            this.AttackDamage *= 2;
             this.Width = 48;
             this.Height = 48;
+            this.MoveSpeed *= 0.8f; // Boss chậm hơn quái thường
         }
     }
 }

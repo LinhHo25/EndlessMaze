@@ -53,7 +53,7 @@
             this.Name = "Poison";
             this.Text = "Poison";
             this.Load += new System.EventHandler(this.Poison_Load);
-       
+
             this.ResumeLayout(false);
 
         }
@@ -65,4 +65,3 @@
         private System.Windows.Forms.Timer timerPoisonDamage;
     }
 }
-

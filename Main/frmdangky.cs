@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic; // Thêm vào để dùng Dictionary mô phỏng DB
 using System.Windows.Forms;
 
 namespace Main
@@ -6,6 +7,14 @@ namespace Main
     public partial class frmDangKy : Form
     {
         private frmMain _mainForm;
+
+        // ===================================================================
+        // GIẢ LẬP DATABASE (TẠM THỜI)
+        // Chúng ta dùng một Dictionary tĩnh để lưu tài khoản (username, password)
+        // Khi bạn kết nối DB thật, bạn sẽ thay thế các hàm bên dưới.
+        private static Dictionary<string, string> simulatedUserDatabase = new Dictionary<string, string>();
+        // ===================================================================
+
 
         // Constructor mới nhận tham chiếu đến frmMain
         public frmDangKy(frmMain mainForm)
@@ -21,26 +30,30 @@ namespace Main
             InitializeComponent();
         }
 
-        // Sự kiện click cho nút ĐĂNG NHẬP
+        // Sự kiện click cho nút ĐĂNG NHẬP (ĐÃ SỬA)
         private void btnLogin_Click(object sender, EventArgs e)
         {
             string username = txtUsername.Text;
             string password = txtPassword.Text;
 
-            // ===================================================================
-            // CHÚ THÍCH DATABASE: PHẦN CẦN THÊM LOGIC ĐĂNG NHẬP/XÁC THỰC
-            // ===================================================================
+            // --- BƯỚC 1: Kiểm tra thông tin nhập ---
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+            {
+                MessageBox.Show("Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.", "Thiếu thông tin", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
-            // // 1. Kết nối DB và kiểm tra tài khoản/mật khẩu
-            // bool isValid = CheckCredentialsInDatabase(username, password);
-
-            bool isValid = true; // Giả định đăng nhập thành công để demo luồng
+            // --- BƯỚC 2: Kiểm tra trong Database ---
+            bool isValid = CheckCredentialsInDatabase(username, password);
 
             if (isValid)
             {
                 MessageBox.Show($"Đăng nhập thành công với tài khoản: {username}", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                this.Hide();
 
+                // Lưu thông tin người dùng hiện tại (SỬA LỖI CS0117)
+                CurrentUser.Username = username; // Sử dụng Username
+
+                this.Hide();
                 // Chuyển sang frmPlay, truyền tham chiếu frmMain để có thể quay lại
                 frmPlay playForm = new frmPlay(_mainForm);
                 playForm.Show();
@@ -51,7 +64,7 @@ namespace Main
             }
         }
 
-        // Sự kiện click cho nút ĐĂNG KÝ (ĐÃ THÊM LOGIC LƯU DỮ LIỆU GIẢ ĐỊNH)
+        // Sự kiện click cho nút ĐĂNG KÝ (ĐÃ SỬA)
         private void btnRegister_Click(object sender, EventArgs e)
         {
             string username = txtUsername.Text;
@@ -63,33 +76,20 @@ namespace Main
                 return;
             }
 
-            // ===================================================================
-            // CHÚ THÍCH DATABASE: LOGIC LƯU DỮ LIỆU ĐĂNG KÝ
-            // ===================================================================
+            // --- BƯỚC 1: Kiểm tra xem tên đăng nhập đã tồn tại chưa ---
+            if (IsUsernameExists(username))
+            {
+                MessageBox.Show("Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên khác.", "Lỗi Đăng Ký", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
 
+            // --- BƯỚC 2: Lưu tài khoản mới vào Database ---
             try
             {
-                // // 1. Kết nối đến DB
-                // var dbConnection = GetDatabaseConnection(); 
+                SaveNewUserToDatabase(username, password);
 
-                // // 2. Kiểm tra tên đăng nhập đã tồn tại chưa
-                // if (IsUsernameExists(dbConnection, username))
-                // {
-                //     MessageBox.Show("Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên khác.", "Lỗi Đăng Ký", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                //     return;
-                // }
+                MessageBox.Show($"Đăng ký tài khoản '{username}' thành công! \nVui lòng đăng nhập lại.", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                // // 3. Mã hóa mật khẩu (NÊN DÙNG HASHING TRONG THỰC TẾ)
-                // string hashedPassword = HashPassword(password);
-
-                // // 4. Lưu tài khoản mới vào DB
-                // SaveNewUserToDatabase(dbConnection, username, hashedPassword);
-
-                MessageBox.Show($"Đăng ký tài khoản '{username}' thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                // Sau khi đăng ký thành công, có thể tự động đăng nhập
-                // (Giả định rằng việc lưu dữ liệu thành công)
-                this.btnLogin_Click(null, EventArgs.Empty);
             }
             catch (Exception ex)
             {
@@ -101,8 +101,8 @@ namespace Main
         // Sự kiện đóng Form, quay lại frmMain
         private void frmDangKy_FormClosed(object sender, FormClosedEventArgs e)
         {
-            // Nếu người dùng đóng form bằng nút X, quay lại Menu chính
-            if (_mainForm != null && _mainForm.Visible == false)
+            // Nếu người dùng đóng form bằng nút X VÀ CHƯA ĐĂNG NHẬP, quay lại Menu chính
+            if (_mainForm != null && _mainForm.Visible == false && !CurrentUser.IsLoggedIn) // SỬA LỖI CS0117
             {
                 _mainForm.Show();
             }
@@ -113,5 +113,45 @@ namespace Main
         {
             // Thêm code khởi tạo (nếu có) khi form được tải
         }
+
+
+        #region Database Placeholder Functions (Hàm giả lập DB)
+
+        /// <summary>
+        /// (Hàm giả lập) Kiểm tra tên đăng nhập và mật khẩu
+        /// </summary>
+        private bool CheckCredentialsInDatabase(string username, string password)
+        {
+            // === CODE DATABASE THẬT ===
+            // Logic giả lập:
+            if (simulatedUserDatabase.ContainsKey(username))
+            {
+                return simulatedUserDatabase[username] == password;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// (Hàm giả lập) Kiểm tra tên đăng nhập đã tồn tại
+        /// </summary>
+        private bool IsUsernameExists(string username)
+        {
+            // === CODE DATABASE THẬT ===
+            // Logic giả lập:
+            return simulatedUserDatabase.ContainsKey(username);
+        }
+
+        /// <summary>
+        /// (Hàm giả lập) Lưu người dùng mới
+        /// </summary>
+        private void SaveNewUserToDatabase(string username, string password)
+        {
+            // === CODE DATABASE THẬT ===
+            // Logic giả lập:
+            simulatedUserDatabase[username] = password;
+        }
+
+        #endregion
     }
 }
+

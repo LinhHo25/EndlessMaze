@@ -54,6 +54,12 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Tri\Character.cs" />
+    <Compile Include="Tri\Maze.cs" />
+    <Compile Include="Tri\MazeGenerator.cs" />
+    <EmbeddedResource Include="EndlessMaze.resx">
+      <DependentUpon>EndlessMaze.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>

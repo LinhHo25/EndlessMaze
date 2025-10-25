@@ -80,6 +80,7 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+
     <Folder Include="ImgSource\Block\RoomOrFloor\" />
     <Folder Include="ImgSource\Block\Wall\" />
     <Folder Include="ImgSource\Block\water\" />
@@ -118,6 +119,11 @@
     <Folder Include="ImgSource\GateWays\" />
     <Folder Include="ImgSource\GUI\Back_Ground\" />
     <Folder Include="ImgSource\Number\" />
+
+    <Folder Include="Phong\Image\Char\Player\Knight_Type_1\" />
+    <Folder Include="Phong\Image\Char\Player\Knight_Type_2\" />
+    <Folder Include="Phong\Image\Char\Player\Knight_Type_3\" />
+
   </ItemGroup>
   <ItemGroup>
     <Content Include="ImgSource\Char\Monster\Orc\Orc_Nor\Atk\Back\orc1_attack_Back1.png" />
@@ -1405,6 +1411,7 @@
     <Content Include="ImgSource\Structure\Torch\Torch_2\fire_animation2_7.png" />
     <Content Include="ImgSource\Structure\Torch\Torch_2\fire_animation2_8.png" />
     <Content Include="ImgSource\Structure\Torch\Torch_2\fire_animation2_9.png" />
+  </ItemGroup>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

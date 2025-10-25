@@ -49,6 +49,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BLL_HUY\Character.cs" />
+    <Compile Include="BLL_HUY\Enemy.cs" />
+    <Compile Include="BLL_HUY\GameManager.cs" />
+    <Compile Include="BLL_HUY\Interaction.cs" />
+    <Compile Include="BLL_HUY\Inventory.cs" />
+    <Compile Include="BLL_HUY\Item.cs" />
+    <Compile Include="BLL_HUY\LootingSystem.cs" />
+    <Compile Include="BLL_HUY\Player.cs" />
     <Compile Include="CurrentUser.cs" />
     <Compile Include="frmdangky.cs">
       <SubType>Form</SubType>
@@ -86,7 +94,6 @@
     <Compile Include="frmMain.Designer.cs">
       <DependentUpon>frmMain.cs</DependentUpon>
     </Compile>
-
     <Compile Include="frmMenu.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -180,17 +187,12 @@
     <EmbeddedResource Include="Map\Water.resx">
       <DependentUpon>Water.cs</DependentUpon>
     </EmbeddedResource>
-
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <SubType>Designer</SubType>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-
     <None Include="packages.config" />
-
-    
-
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -206,53 +208,7 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-
     <None Include="Resources\background.jpg" />
-
-
-    <Folder Include="ImgSource\Block\RoomOrFloor\" />
-    <Folder Include="ImgSource\Block\Wall\" />
-    <Folder Include="ImgSource\Block\water\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Atk\Back\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Atk\Front\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Atk\Left\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Atk\Right\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Death\Back\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Death\Front\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Death\Left\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Death\Right\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Hurt\Back\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Hurt\Front\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Hurt\Left\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Hurt\Right\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run\Back\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run\Front\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run\Left\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run\Right\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run_Atk\Back\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run_Atk\Front\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run_Atk\Left\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run_Atk\Right\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Stand\Back\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Stand\Front\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Stand\Left\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Stand\Right\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk\Back\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk\Front\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk\Left\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk\Right\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk_Atk\Back\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk_Atk\Front\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk_Atk\Left\" />
-    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk_Atk\Right\" />
-    <Folder Include="ImgSource\GateWays\" />
-    <Folder Include="ImgSource\GUI\Back_Ground\" />
-    <Folder Include="ImgSource\Number\" />
-
-    <Folder Include="Phong\Image\Char\Player\Knight_Type_1\" />
-    <Folder Include="Phong\Image\Char\Player\Knight_Type_2\" />
-    <Folder Include="Phong\Image\Char\Player\Knight_Type_3\" />
-
   </ItemGroup>
   <ItemGroup>
     <Content Include="ImgSource\Char\Monster\Orc\Orc_Nor\Atk\Back\orc1_attack_Back1.png" />
@@ -1541,7 +1497,48 @@
     <Content Include="ImgSource\Structure\Torch\Torch_2\fire_animation2_8.png" />
     <Content Include="ImgSource\Structure\Torch\Torch_2\fire_animation2_9.png" />
   </ItemGroup>
-
-  
+  <ItemGroup>
+    <Folder Include="ImgSource\Block\RoomOrFloor\" />
+    <Folder Include="ImgSource\Block\Wall\" />
+    <Folder Include="ImgSource\Block\water\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Atk\Back\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Atk\Front\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Atk\Left\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Atk\Right\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Death\Back\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Death\Front\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Death\Left\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Death\Right\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Hurt\Back\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Hurt\Front\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Hurt\Left\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Hurt\Right\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run\Back\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run\Front\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run\Left\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run\Right\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run_Atk\Back\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run_Atk\Front\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run_Atk\Left\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Run_Atk\Right\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Stand\Back\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Stand\Front\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Stand\Left\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Stand\Right\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk\Back\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk\Front\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk\Left\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk\Right\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk_Atk\Back\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk_Atk\Front\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk_Atk\Left\" />
+    <Folder Include="ImgSource\Char\Monster\Orc\Orc_Flame\Walk_Atk\Right\" />
+    <Folder Include="ImgSource\GateWays\" />
+    <Folder Include="ImgSource\GUI\Back_Ground\" />
+    <Folder Include="ImgSource\Number\" />
+    <Folder Include="Phong\Image\Char\Player\Knight_Type_1\" />
+    <Folder Include="Phong\Image\Char\Player\Knight_Type_2\" />
+    <Folder Include="Phong\Image\Char\Player\Knight_Type_3\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

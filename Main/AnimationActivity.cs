@@ -5,9 +5,10 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 
-namespace Main
+namespace TESTT
 {
-    internal class AnimationActivity
+    // Class này quản lý MỘT bộ hoạt ảnh 4 hướng
+    public class AnimationActivity
     {
         // 1. Lưu trữ ảnh
         private List<Image> BackImages = new List<Image>();
@@ -15,36 +16,56 @@ namespace Main
         private List<Image> LeftImages = new List<Image>();
         private List<Image> RightImages = new List<Image>();
 
-        // 2. Trạng thái hoạt ảnh (riêng cho class này)
+        // 2. Trạng thái hoạt ảnh
         private int steps = 0;
         private int slowDownFrameRate = 0;
-        private int animationSpeed; // Tốc độ (ví dụ: 4, 10)
+        private int animationSpeed;
 
-        /// <summary>
-        /// Khởi tạo một hoạt động hoạt ảnh mới.
-        /// </summary>
-        /// <param name="speed">Tốc độ. Số càng lớn, hoạt ảnh càng chậm.</param>
+        // Hoạt ảnh này có lặp lại không? (Mặc định là có)
+        public bool IsLooping { get; set; } = true;
+        // Hoạt ảnh (không lặp) đã chạy xong chưa?
+        public bool IsFinished { get; private set; } = false;
+
+
         public AnimationActivity(int speed = 10)
         {
             animationSpeed = speed;
         }
 
         /// <summary>
-        /// Tải các file ảnh từ một thư mục dựa trên các từ khóa.
+        /// Tải ảnh từ 4 thư mục hướng riêng biệt
         /// </summary>
-        public void LoadImages(string directory, string backKey, string frontKey, string leftKey, string rightKey)
+        public void LoadImages(string backDirectory, string frontDirectory, string leftDirectory, string rightDirectory)
         {
             try
             {
-                var files = Directory.GetFiles(directory, "*.png");
-                BackImages.AddRange(files.Where(f => f.Contains(backKey)).OrderBy(f => f).Select(f => Image.FromFile(f)));
-                FrontImages.AddRange(files.Where(f => f.Contains(frontKey)).OrderBy(f => f).Select(f => Image.FromFile(f)));
-                LeftImages.AddRange(files.Where(f => f.Contains(leftKey)).OrderBy(f => f).Select(f => Image.FromFile(f)));
-                RightImages.AddRange(files.Where(f => f.Contains(rightKey)).OrderBy(f => f).Select(f => Image.FromFile(f)));
+                // Tải ảnh Back
+                if (Directory.Exists(backDirectory))
+                {
+                    BackImages.AddRange(Directory.GetFiles(backDirectory, "*.png").OrderBy(f => f).Select(f => Image.FromFile(f)));
+                }
+
+                // Tải ảnh Front
+                if (Directory.Exists(frontDirectory))
+                {
+                    FrontImages.AddRange(Directory.GetFiles(frontDirectory, "*.png").OrderBy(f => f).Select(f => Image.FromFile(f)));
+                }
+
+                // Tải ảnh Left
+                if (Directory.Exists(leftDirectory))
+                {
+                    LeftImages.AddRange(Directory.GetFiles(leftDirectory, "*.png").OrderBy(f => f).Select(f => Image.FromFile(f)));
+                }
+
+                // Tải ảnh Right
+                if (Directory.Exists(rightDirectory))
+                {
+                    RightImages.AddRange(Directory.GetFiles(rightDirectory, "*.png").OrderBy(f => f).Select(f => Image.FromFile(f)));
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi tải ảnh từ thư mục '{directory}': {ex.Message}");
+                MessageBox.Show($"Lỗi tải ảnh: {ex.Message}");
             }
         }
 
@@ -67,25 +88,37 @@ namespace Main
             // 2. Kiểm tra an toàn
             if (animationFrames == null || animationFrames.Count == 0)
             {
+                IsFinished = true; // Nếu không có ảnh, coi như "xong"
                 return null; // Không có ảnh để hiển thị
             }
 
-            // 3. Logic chạy frame
-            slowDownFrameRate++;
-            if (slowDownFrameRate > animationSpeed)
+            // 3. Logic chạy frame (Đã cập nhật cho IsLooping)
+            if (!IsFinished) // Chỉ tăng frame nếu hoạt ảnh chưa kết thúc
             {
-                steps++;
-                if (steps >= animationFrames.Count)
+                slowDownFrameRate++;
+                if (slowDownFrameRate > animationSpeed)
                 {
-                    steps = 0;
+                    steps++;
+                    if (steps >= animationFrames.Count)
+                    {
+                        if (IsLooping)
+                        {
+                            steps = 0; // Lặp lại từ đầu
+                        }
+                        else
+                        {
+                            steps = animationFrames.Count - 1; // Dừng ở frame cuối
+                            IsFinished = true; // Báo là đã xong
+                        }
+                    }
+                    slowDownFrameRate = 0;
                 }
-                slowDownFrameRate = 0;
             }
 
-            // 4. Đảm bảo 'steps' không bị lỗi (sau khi đổi hướng)
+            // 4. Đảm bảo 'steps' không bị lỗi
             if (steps >= animationFrames.Count)
             {
-                steps = 0;
+                steps = animationFrames.Count - 1;
             }
 
             // 5. Trả về ảnh hiện tại
@@ -118,6 +151,8 @@ namespace Main
         {
             steps = 0;
             slowDownFrameRate = 0;
+            IsFinished = false; // Reset lại cờ 'IsFinished'
         }
     }
 }
+

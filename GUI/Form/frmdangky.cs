@@ -33,79 +33,19 @@ namespace Main
         // Sự kiện click cho nút ĐĂNG NHẬP (ĐÃ SỬA)
         private void btnLogin_Click(object sender, EventArgs e)
         {
-            string username = txtUsername.Text;
-            string password = txtPassword.Text;
-
-            // --- BƯỚC 1: Kiểm tra thông tin nhập ---
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-            {
-                MessageBox.Show("Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.", "Thiếu thông tin", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // --- BƯỚC 2: Kiểm tra trong Database ---
-            bool isValid = CheckCredentialsInDatabase(username, password);
-
-            if (isValid)
-            {
-                MessageBox.Show($"Đăng nhập thành công với tài khoản: {username}", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                // Lưu thông tin người dùng hiện tại (SỬA LỖI CS0117)
-                CurrentUser.Username = username; // Sử dụng Username
-
-                this.Hide();
-                // Chuyển sang frmPlay, truyền tham chiếu frmMain để có thể quay lại
-                frmPlay playForm = new frmPlay(_mainForm);
-                playForm.Show();
-            }
-            else
-            {
-                MessageBox.Show("Tên đăng nhập hoặc mật khẩu không đúng.", "Lỗi Đăng Nhập", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            
         }
 
         // Sự kiện click cho nút ĐĂNG KÝ (ĐÃ SỬA)
         private void btnRegister_Click(object sender, EventArgs e)
         {
-            string username = txtUsername.Text;
-            string password = txtPassword.Text;
-
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-            {
-                MessageBox.Show("Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.", "Lỗi Đăng Ký", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // --- BƯỚC 1: Kiểm tra xem tên đăng nhập đã tồn tại chưa ---
-            if (IsUsernameExists(username))
-            {
-                MessageBox.Show("Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên khác.", "Lỗi Đăng Ký", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            // --- BƯỚC 2: Lưu tài khoản mới vào Database ---
-            try
-            {
-                SaveNewUserToDatabase(username, password);
-
-                MessageBox.Show($"Đăng ký tài khoản '{username}' thành công! \nVui lòng đăng nhập lại.", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-            }
-            catch (Exception ex)
-            {
-                // Xử lý lỗi khi lưu vào DB
-                MessageBox.Show($"Đăng ký thất bại do lỗi hệ thống (DB): {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            
         }
 
         // Sự kiện đóng Form, quay lại frmMain
         private void frmDangKy_FormClosed(object sender, FormClosedEventArgs e)
         {
-            // Nếu người dùng đóng form bằng nút X VÀ CHƯA ĐĂNG NHẬP, quay lại Menu chính
-            if (_mainForm != null && _mainForm.Visible == false && !CurrentUser.IsLoggedIn) // SỬA LỖI CS0117
-            {
-                _mainForm.Show();
-            }
+            
         }
 
         // Sự kiện Load Form

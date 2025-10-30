@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Main.Tri; // Thêm using để sử dụng các lớp logic
+
 namespace Main
 {
     // Đổi tên lớp từ Form1 thành frmMain để dễ quản lý

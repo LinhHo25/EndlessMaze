@@ -143,6 +143,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="Tri\AnimationActivity.cs" />
     <Compile Include="Tri\GameLogicItems.cs" />
     <Compile Include="Tri\GameManager.cs" />
     <Compile Include="Tri\GameObject.cs" />

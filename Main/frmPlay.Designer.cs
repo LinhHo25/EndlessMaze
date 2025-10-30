@@ -38,9 +38,10 @@
             // BtnLoad
             // 
             this.BtnLoad.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.BtnLoad.Location = new System.Drawing.Point(50, 160);
+            this.BtnLoad.Location = new System.Drawing.Point(67, 197);
+            this.BtnLoad.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.BtnLoad.Name = "BtnLoad";
-            this.BtnLoad.Size = new System.Drawing.Size(280, 50);
+            this.BtnLoad.Size = new System.Drawing.Size(373, 62);
             this.BtnLoad.TabIndex = 2;
             this.BtnLoad.Text = "Tải Lượt Chơi Đã Lưu";
             this.BtnLoad.UseVisualStyleBackColor = true;
@@ -49,9 +50,10 @@
             // btnBack
             // 
             this.btnBack.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnBack.Location = new System.Drawing.Point(50, 210);
+            this.btnBack.Location = new System.Drawing.Point(67, 258);
+            this.btnBack.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.btnBack.Name = "btnBack";
-            this.btnBack.Size = new System.Drawing.Size(280, 50);
+            this.btnBack.Size = new System.Drawing.Size(373, 62);
             this.btnBack.TabIndex = 3;
             this.btnBack.Text = "Quay Lại Menu";
             this.btnBack.UseVisualStyleBackColor = true;
@@ -61,9 +63,10 @@
             // 
             this.lblTitle.AutoSize = true;
             this.lblTitle.Font = new System.Drawing.Font("Segoe UI", 16F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblTitle.Location = new System.Drawing.Point(90, 15);
+            this.lblTitle.Location = new System.Drawing.Point(120, 18);
+            this.lblTitle.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.lblTitle.Name = "lblTitle";
-            this.lblTitle.Size = new System.Drawing.Size(201, 30);
+            this.lblTitle.Size = new System.Drawing.Size(277, 37);
             this.lblTitle.TabIndex = 4;
             this.lblTitle.Text = "CHỌN CHẾ ĐỘ CHƠI";
             // 
@@ -72,9 +75,10 @@
             this.btnNewGame.BackColor = System.Drawing.Color.ForestGreen;
             this.btnNewGame.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnNewGame.ForeColor = System.Drawing.Color.White;
-            this.btnNewGame.Location = new System.Drawing.Point(50, 60);
+            this.btnNewGame.Location = new System.Drawing.Point(67, 74);
+            this.btnNewGame.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.btnNewGame.Name = "btnNewGame";
-            this.btnNewGame.Size = new System.Drawing.Size(280, 50);
+            this.btnNewGame.Size = new System.Drawing.Size(373, 62);
             this.btnNewGame.TabIndex = 0;
             this.btnNewGame.Text = "Chơi Mới";
             this.btnNewGame.UseVisualStyleBackColor = false;
@@ -83,9 +87,10 @@
             // btnContinue
             // 
             this.btnContinue.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnContinue.Location = new System.Drawing.Point(50, 110);
+            this.btnContinue.Location = new System.Drawing.Point(67, 135);
+            this.btnContinue.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.btnContinue.Name = "btnContinue";
-            this.btnContinue.Size = new System.Drawing.Size(280, 50);
+            this.btnContinue.Size = new System.Drawing.Size(373, 62);
             this.btnContinue.TabIndex = 1;
             this.btnContinue.Text = "Chơi Tiếp";
             this.btnContinue.UseVisualStyleBackColor = true;
@@ -93,20 +98,22 @@
             // 
             // frmPlay
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(384, 281);
+            this.ClientSize = new System.Drawing.Size(512, 346);
             this.Controls.Add(this.btnContinue);
             this.Controls.Add(this.btnNewGame);
             this.Controls.Add(this.lblTitle);
             this.Controls.Add(this.btnBack);
             this.Controls.Add(this.BtnLoad);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            this.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.MaximizeBox = false;
             this.Name = "frmPlay";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "Chọn Map Chơi";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.frmPlay_FormClosed);
+            this.Load += new System.EventHandler(this.frmPlay_Load);
             this.ResumeLayout(false);
             this.PerformLayout();
 

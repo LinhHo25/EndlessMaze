@@ -47,7 +47,7 @@
             // timerFall
             // 
             this.timerFall.Interval = 500; // 0.5 giây (sẽ được override trong logic)
-            this.timerFall.Tick += new System.EventHandler(this.timerFall_Tick);
+        
             // 
             // Water
             // 
@@ -56,7 +56,7 @@
             this.ClientSize = new System.Drawing.Size(800, 480); // Kích thước chuẩn 25x15 tiles (800x480)
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
-            this.Name = "Water";
+           
             this.Text = "Water";
             this.Load += new System.EventHandler(this.Water_Load);
 

@@ -50,7 +50,7 @@
             this.ClientSize = new System.Drawing.Size(800, 480);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
-            this.Name = "Poison";
+          
             this.Text = "Poison";
             this.Load += new System.EventHandler(this.Poison_Load);
 

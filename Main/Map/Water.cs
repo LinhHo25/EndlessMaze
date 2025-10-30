@@ -32,11 +32,18 @@ namespace Main.Map
         private const int MAZE_HEIGHT = 15;
         private int tileSize = (int)GameObjectType.TileSize;
 
-        private int fallDelay = 500;
+        // XÓA: fallDelay không còn dùng nữa
+        // private int fallDelay = 500;
         private bool isRaining = false;
         private Random rand = new Random();
 
+        // Kích thước hitbox cố định của Player
+        private const int PLAYER_HITBOX_SIZE = 28;
+
+
         public Player Player { get { return player; } }
+        // FIX CS0108: Add 'new' keyword
+        public new string Name => this.Text; // Implement Name property
 
         public Water(frmMain mainMenuForm)
         {
@@ -54,14 +61,18 @@ namespace Main.Map
             InitializeWallsAndItems(); // Đổi tên hàm
 
             PointF startPos = GetPlayerSpawnPoint();
-            player = new Player(startPos.X, startPos.Y, 28);
+            // Sử dụng kích thước cố định khi tạo Player
+            player = new Player(startPos.X, startPos.Y, PLAYER_HITBOX_SIZE);
+            // BẮT BUỘC: Gọi SetUpAnimations sau khi khởi tạo Player
             player.SetUpAnimations();
+
 
             monsters.Add(new Monster(MonsterType.Water, GetRandomFloorPosition()));
             monsters.Add(new Monster(MonsterType.Water, GetRandomFloorPosition()));
             boss = new Boss(MonsterType.Water, GetRandomFloorPosition(true));
 
-            this.timerFall.Interval = fallDelay;
+            // XÓA: timerFall không còn dùng nữa
+            // this.timerFall.Interval = fallDelay;
             this.timerGameLoop.Start();
             this.timerRain.Start();
         }
@@ -162,18 +173,22 @@ namespace Main.Map
 
             player.Update();
             PointF playerMove = player.CalculateMovementVector(player.Position);
-            player.Position = GetAllowedMovement(player.BoundingBox, playerMove);
+            PointF nextPlayerPos = new PointF(player.X + playerMove.X, player.Y + playerMove.Y);
+            player.Position = GetAllowedMovement(player.BoundingBox, nextPlayerPos);
+
 
             foreach (var monster in monsters)
             {
                 monster.Update();
                 PointF monsterMove = monster.CalculateMovementVector(player.Position);
-                monster.Position = GetAllowedMovement(monster.BoundingBox, monsterMove);
+                PointF nextMonsterPos = new PointF(monster.X + monsterMove.X, monster.Y + monsterMove.Y);
+                monster.Position = GetAllowedMovement(monster.BoundingBox, nextMonsterPos);
                 // TODO: Xử lý quái tấn công Player
             }
             boss.Update();
             PointF bossMove = boss.CalculateMovementVector(player.Position);
-            boss.Position = GetAllowedMovement(boss.BoundingBox, bossMove);
+            PointF nextBossPos = new PointF(boss.X + bossMove.X, boss.Y + bossMove.Y);
+            boss.Position = GetAllowedMovement(boss.BoundingBox, nextBossPos);
 
             // --- THÊM MỚI: Xử lý nhặt vật phẩm ---
             for (int i = itemsOnMap.Count - 1; i >= 0; i--)
@@ -187,39 +202,69 @@ namespace Main.Map
             }
             // -----------------------------------
 
+            // XÓA: Logic ngã khi lướt trong mưa (đã chuyển vào Player.cs)
+            /*
             if (isRaining && player.IsDashing && player.DashCount > 3)
             {
                 player.IsFallen = true;
                 this.timerFall.Start();
             }
+            */
 
             this.Invalidate();
         }
 
-        // ... (Hàm GetAllowedMovement, timerRain, timerFall giữ nguyên) ...
-        private PointF GetAllowedMovement(RectangleF bounds, PointF moveVector)
+        // Sửa hàm GetAllowedMovement để nhận vị trí MỚI thay vì vector
+        private PointF GetAllowedMovement(RectangleF currentBounds, PointF nextPosition)
         {
-            float dx = moveVector.X;
-            float dy = moveVector.Y;
+            float currentX = currentBounds.X;
+            float currentY = currentBounds.Y;
+            float nextX = nextPosition.X;
+            float nextY = nextPosition.Y;
+            float dx = nextX - currentX;
+            float dy = nextY - currentY;
 
-            RectangleF nextBounds = bounds;
-            nextBounds.X += dx;
-            nextBounds.Y += dy;
 
-            RectangleF nextXBounds = bounds;
-            nextXBounds.X += dx;
+            RectangleF nextXBounds = currentBounds;
+            nextXBounds.X = nextX; // Di chuyển theo X trước
 
-            RectangleF nextYBounds = bounds;
-            nextYBounds.Y += dy;
-
+            // FIX CS0219: Remove unused variable collisionX
+            // bool collisionX = false;
             foreach (var wall in wallBounds)
             {
-                if (nextXBounds.IntersectsWith(wall)) dx = 0;
-                if (nextYBounds.IntersectsWith(wall)) dy = 0;
+                if (nextXBounds.IntersectsWith(wall))
+                {
+                    // collisionX = true; // No longer needed
+                    // Điều chỉnh vị trí X để vừa chạm tường
+                    if (dx > 0) nextX = wall.Left - currentBounds.Width;
+                    else if (dx < 0) nextX = wall.Right;
+                    break;
+                }
             }
 
-            return new PointF(bounds.X + dx, bounds.Y + dy);
+
+            RectangleF nextYBounds = currentBounds;
+            nextYBounds.X = nextX; // Dùng X đã điều chỉnh (nếu có)
+            nextYBounds.Y = nextY; // Di chuyển Y sau
+
+            // FIX CS0219: Remove unused variable collisionY
+            // bool collisionY = false;
+            foreach (var wall in wallBounds)
+            {
+                if (nextYBounds.IntersectsWith(wall))
+                {
+                    // collisionY = true; // No longer needed
+                    // Điều chỉnh vị trí Y để vừa chạm tường
+                    if (dy > 0) nextY = wall.Top - currentBounds.Height;
+                    else if (dy < 0) nextY = wall.Bottom;
+                    break;
+                }
+            }
+
+            return new PointF(nextX, nextY); // Trả về vị trí cuối cùng hợp lệ
         }
+
+        // Timer mưa
         private void timerRain_Tick(object sender, EventArgs e)
         {
             isRaining = !isRaining;
@@ -228,18 +273,23 @@ namespace Main.Map
                 player.DashCount = 0;
             }
         }
+
+        // XÓA: timerFall_Tick không còn dùng nữa
+        /*
         private void timerFall_Tick(object sender, EventArgs e)
         {
-            player.StopDash();
+            // player.StopDash(); // Hàm này không còn nữa
             player.IsFallen = false;
             this.timerFall.Stop();
         }
+        */
 
         // Xử lý vẽ (ĐÃ CẬP NHẬT)
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
             Graphics g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; // Vẽ mượt hơn
             g.Clear(Color.DarkBlue);
 
             // --- THAY ĐỔI: Vẽ Sàn bằng Họa tiết ---
@@ -258,11 +308,14 @@ namespace Main.Map
             // Vẽ mưa
             if (isRaining)
             {
-                for (int i = 0; i < 50; i++)
+                using (Pen rainPen = new Pen(Color.Cyan, 1)) // Dùng using để giải phóng Pen
                 {
-                    int x = rand.Next(this.Width);
-                    int y = rand.Next(this.Height);
-                    g.DrawLine(Pens.Cyan, x, y, x + 1, y + 5);
+                    for (int i = 0; i < 50; i++)
+                    {
+                        int x = rand.Next(this.Width);
+                        int y = rand.Next(this.Height);
+                        g.DrawLine(rainPen, x, y, x + 1, y + 5);
+                    }
                 }
             }
 
@@ -282,7 +335,7 @@ namespace Main.Map
             boss.Draw(g);
         }
 
-        // ... (Các hàm xử lý phím ProcessCmdKey, OnKeyUp, Water_Load giữ nguyên) ...
+        // --- XỬ LÝ NHẤN PHÍM (ĐÃ SỬA) ---
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
             if (keyData == Keys.Escape)
@@ -299,20 +352,30 @@ namespace Main.Map
             }
 
             if (_isGamePaused) return base.ProcessCmdKey(ref msg, keyData);
-            if (player.IsFallen) return base.ProcessCmdKey(ref msg, keyData);
+            // XÓA: Kiểm tra IsFallen
+            // if (player.IsFallen) return base.ProcessCmdKey(ref msg, keyData);
 
             switch (keyData)
             {
+                // Di chuyển
                 case Keys.A: player.MoveLeft = true; return true;
                 case Keys.D: player.MoveRight = true; return true;
                 case Keys.W: player.MoveUp = true; return true;
                 case Keys.S: player.MoveDown = true; return true;
-                case Keys.ShiftKey: player.Dash(); return true;
-                case Keys.Q: player.Attack(); return true;
-                case Keys.E: player.Block(true); return true;
+
+                // Hành động
+                // SỬA: Set cờ input thay vì gọi hàm
+                case Keys.ShiftKey: player.AttemptDashInput = true; return true;
+                case Keys.Space: player.AttemptAttackInput = true; return true;
+                case Keys.ControlKey: player.AttemptRun = true; return true; // Chạy
+
+                    //case Keys.E: player.IsBlocking = true; return true; // Đỡ đòn (nếu cần)
+
             }
             return base.ProcessCmdKey(ref msg, keyData);
         }
+
+        // --- XỬ LÝ NHẢ PHÍM (ĐÃ SỬA) ---
         protected override void OnKeyUp(KeyEventArgs e)
         {
             if (_isGamePaused) return;
@@ -320,12 +383,16 @@ namespace Main.Map
             base.OnKeyUp(e);
             switch (e.KeyCode)
             {
+                // Di chuyển
                 case Keys.A: player.MoveLeft = false; break;
                 case Keys.D: player.MoveRight = false; break;
                 case Keys.W: player.MoveUp = false; break;
                 case Keys.S: player.MoveDown = false; break;
-                case Keys.ShiftKey: player.AttemptDash = false; break;
-                case Keys.E: player.Block(false); break;
+
+                // Hành động
+                case Keys.ControlKey: player.AttemptRun = false; break; // Ngừng chạy
+                                                                        //case Keys.ShiftKey: // Không cần làm gì khi nhả Shift nữa
+                                                                        //case Keys.E: player.IsBlocking = false; break; // Ngừng đỡ đòn
             }
         }
         private void Water_Load(object sender, EventArgs e)
@@ -333,12 +400,30 @@ namespace Main.Map
             this.KeyPreview = true;
         }
 
-        // ... (Các hàm IGameMap: GetCurrentGameState, LoadGameState, GetPlayerSpawnPoint, PauseGame, ResumeGame giữ nguyên) ...
+        // ... (Các hàm IGameMap: GetCurrentGameState, LoadGameState, PauseGame, ResumeGame giữ nguyên) ...
+
+        // --- SỬA GetPlayerSpawnPoint ---
+        public PointF GetPlayerSpawnPoint()
+        {
+            // Đảm bảo trả về tọa độ pixel, không phải grid
+            if (mazeGen != null)
+            {
+                // SỬA: Sử dụng hằng số PLAYER_HITBOX_SIZE thay vì player.Width/Height
+                return new PointF(
+                    mazeGen.StartGridPosition.X * tileSize + (tileSize - PLAYER_HITBOX_SIZE) / 2, // Căn giữa ô
+                    mazeGen.StartGridPosition.Y * tileSize + (tileSize - PLAYER_HITBOX_SIZE) / 2 // Căn giữa ô
+                );
+            }
+            return new PointF(tileSize, tileSize); // Fallback
+        }
         public GameState GetCurrentGameState()
         {
+            // Kiểm tra player null trước khi truy cập thuộc tính
+            if (player == null) return null; // Hoặc trả về một GameState mặc định
+
             return new GameState
             {
-                MapName = this.Name,
+                MapName = this.Name, // Sử dụng Name của Form
                 PlayerX = player.X,
                 PlayerY = player.Y,
                 PlayerHealth = player.CurrentHealth,
@@ -348,9 +433,24 @@ namespace Main.Map
         }
         public void LoadGameState(GameState state)
         {
+            // Kiểm tra player null trước khi load
+            if (player == null)
+            {
+                MessageBox.Show("Lỗi: Người chơi chưa được khởi tạo để load game.");
+                this.Close();
+                return;
+            }
+
+            if (state == null)
+            {
+                MessageBox.Show("Lỗi: Dữ liệu save không hợp lệ.");
+                return;
+            }
+
             if (state.MapName != this.Name)
             {
                 MessageBox.Show($"Lỗi: Không thể tải save của map '{state.MapName}' lên map '{this.Name}'.");
+                this.Close(); // Đóng map hiện tại nếu load sai
                 return;
             }
 
@@ -358,37 +458,49 @@ namespace Main.Map
             player.CurrentHealth = state.PlayerHealth;
             player.CurrentStamina = state.PlayerStamina;
             // Tải Inventory
-            if (state.Inventory != null) player.Inventory.Clear();
-            foreach (var item in state.Inventory) { player.AddItem(item.Key, item.Value); }
+            if (state.Inventory != null)
+            {
+                player.Inventory.Clear(); // Xóa đồ cũ trước khi load
+                foreach (var item in state.Inventory)
+                {
+                    // Hàm AddItem giờ chỉ cần ItemType và số lượng
+                    player.AddItem(item.Key, item.Value);
+                }
+            }
 
 
             MessageBox.Show("Tải game thành công!");
-            ResumeGame();
-        }
-        public PointF GetPlayerSpawnPoint()
-        {
-            return new PointF(
-               mazeGen.StartGridPosition.X * tileSize,
-               mazeGen.StartGridPosition.Y * tileSize
-           );
+            ResumeGame(); // Đảm bảo game chạy sau khi load
         }
         public void PauseGame()
         {
             _isGamePaused = true;
+            timerGameLoop.Stop(); // Dừng timer chính khi pause
             if (_pauseMenu == null || _pauseMenu.IsDisposed)
             {
+                // Kiểm tra player null trước khi truyền vào frmMenu
+                if (Player == null)
+                {
+                    MessageBox.Show("Lỗi: Không thể mở menu vì Player chưa được khởi tạo.");
+                    _isGamePaused = false; // Bỏ pause
+                    timerGameLoop.Start(); // Chạy lại timer
+                    return;
+                }
                 _pauseMenu = new frmMenu(_mainMenuForm, this);
             }
-            _pauseMenu.Show(this);
+            _pauseMenu.Show(this); // Hiển thị menu pause
         }
         public void ResumeGame()
         {
             _isGamePaused = false;
+            timerGameLoop.Start(); // Chạy lại timer chính khi resume
             if (_pauseMenu != null && !_pauseMenu.IsDisposed)
             {
-                _pauseMenu.Close();
+                _pauseMenu.Close(); // Đóng menu pause
             }
+            this.Focus(); // Lấy lại focus cho form map để nhận input
         }
+
 
         // --- LỚP PARTICLE (HIỆU ỨNG) ---
         private class Particle

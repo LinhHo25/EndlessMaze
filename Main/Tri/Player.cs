@@ -8,240 +8,465 @@ using System.Windows.Forms;
 
 namespace Main.Tri
 {
-    public enum PlayerState
-    {
-        Idle,
-        Walking,
-        Dashing,
-        Attacking,
-        Blocking,
-        Fallen
-    }
+    // LƯU Ý: Enum PlayerState cũ đã bị XÓA
+    // Logic mới sử dụng các biến boolean (isAttacking, isDashing...)
 
     public class Player : GameObject
     {
-        // ... (Các thuộc tính MaxHealth, CurrentHealth... giữ nguyên) ...
+        // --- CÁC THUỘC TÍNH CŨ (Túi đồ, Máu, Buff) VẪN GIỮ NGUYÊN ---
         public float MaxHealth { get; set; } = 100;
         public float CurrentHealth { get; set; } = 100;
         public float MaxStamina { get { return 100f; } }
         public float CurrentStamina { get { return this.Stamina; } set { this.Stamina = value; } }
         public bool IsPoisoned { get; set; } = false;
-        public int DashCount { get; set; } = 0;
-
-        public PlayerState CurrentState { get; private set; } = PlayerState.Idle;
-        public bool IsFallen { get { return CurrentState == PlayerState.Fallen; } set { if (value) CurrentState = PlayerState.Fallen; else if (CurrentState == PlayerState.Fallen) CurrentState = PlayerState.Idle; } }
-        public bool IsDashing { get { return CurrentState == PlayerState.Dashing; } }
-        public bool IsAttacking { get { return CurrentState == PlayerState.Attacking; } }
-        public bool IsBlocking { get; private set; } = false;
-
-        // --- THÊM MỚI: TÚI ĐỒ VÀ HIỆU ỨNG ---
+        public int DashCount { get; set; } = 0; // Vẫn giữ cho map Water
         public Dictionary<ItemType, int> Inventory { get; private set; } = new Dictionary<ItemType, int>();
         public Dictionary<BuffType, Buff> ActiveBuffs { get; private set; } = new Dictionary<BuffType, Buff>();
-        // ------------------------------------
 
-        // ... (Các hằng số const, MoveSpeed, Stamina... giữ nguyên) ...
-        private const float BASE_SPEED = 4.0f;
-        private const float DASH_SPEED = 18.0f;
-        private const int DASH_DURATION_FRAMES = 8;
-        private const float MAX_STAMINA = 100f;
-        private const float DASH_COST = 40f;
-        private const float STAMINA_REGEN = 0.5f;
-
-        public float MoveSpeed { get; private set; }
-        public float Stamina { get; private set; }
-        private int actionTimer = 0;
-
+        // --- CÁC THUỘC TÍNH INPUT (SẼ ĐƯỢC SET TỪ FORM MAP) ---
         public bool MoveUp { get; set; }
         public bool MoveDown { get; set; }
         public bool MoveLeft { get; set; }
         public bool MoveRight { get; set; }
-        public bool AttemptDash { get; set; }
-        public bool AttemptAttack { get; set; }
-        public bool AttemptBlock { get; set; }
+        public bool AttemptRun { get; set; } = false; // Input chạy (ControlKey)
+        public bool AttemptAttackInput { get; set; } = false; // Input tấn công (Space)
+        public bool AttemptDashInput { get; set; } = false; // Input lướt (Shift)
+        public bool IsBlocking { get; set; } = false; // Input đỡ đòn (E) -> Logic này chưa được dùng trong Update mới
 
+        // --- CÁC BIẾN LOGIC MỚI (TỪ FORM1.CS) ---
+        private Image currentSprite;
+        private string currentActivityState = "idle_down";
         private string lastFacingDirection = "down";
 
-        // ... (Các biến Animation giữ nguyên) ...
-        private Image currentSprite;
-        private int animationStep = 0;
-        private int animationSlowDown = 0;
-        private const int ANIMATION_SPEED = 10;
-        private string currentAnimationName = "stand_down";
+        // Tốc độ
+        private const float playerSpeed = 6;
+        private const float playerRunSpeed = 10;
+        private const float dashSpeed = 25f; // Giảm tốc độ dash một chút
 
-        private Dictionary<string, List<Image>> animations = new Dictionary<string, List<Image>>();
+        // Kích thước vẽ (Thêm vào)
+        private const float DRAW_SCALE = 2.0f; // Tỷ lệ vẽ so với hitbox
 
+        // Các đối tượng quản lý hoạt ảnh
+        private AnimationActivity walkActivity;
+        private AnimationActivity idleActivity;
+        private AnimationActivity runActivity;
+        private AnimationActivity attackActivity;
+        private AnimationActivity walkAttackActivity;
+        private AnimationActivity runAttackActivity;
+        private AnimationActivity hurtActivity;
+        private AnimationActivity deathActivity;
+        // (Bạn có thể thêm AnimationActivity cho 'Block' nếu muốn)
+
+        // Biến trạng thái
+        private bool isAttacking = false;
+        private bool isHurt = false; // (Hàm TakeDamage có thể set = true)
+        private bool isDead = false; // (Hàm TakeDamage có thể set = true)
+        private bool isDashing = false;
+
+        // Biến tính toán
+        private int dashTimer = 0;
+        private const int DASH_DURATION_FRAMES = 6; // Giảm thời gian lướt
+        private int dashCooldown = 0;
+        private const int DASH_COOLDOWN_FRAMES = 30; // Giảm cooldown
+        private float dashDirectionX = 0;
+        private float dashDirectionY = 0;
+        private float calculatedMoveX = 0;
+        private float calculatedMoveY = 0;
+
+        // Biến stamina (lấy từ logic cũ)
+        private const float MAX_STAMINA = 100f;
+        private const float DASH_COST = 35f; // Giảm chi phí dash
+        private const float STAMINA_REGEN = 0.8f; // Tăng hồi stamina
+        public float Stamina { get; private set; }
+
+
+        // --- CONSTRUCTOR (ĐÃ SỬA) ---
         public Player(float x, float y, int size) :
             base(x, y, size, size, GameObjectType.Player)
         {
             Stamina = MAX_STAMINA;
-            MoveSpeed = BASE_SPEED;
-
-            // --- THÊM MỚI: Cho vật phẩm test lúc bắt đầu ---
             AddItem(ItemType.HealthPotion, 3);
             AddItem(ItemType.AttackPotion, 1);
-            // -----------------------------------------
+
+            // Gọi hàm SetUp mới
+            SetUpAnimations();
         }
 
-        // ... (Hàm SetUpAnimations, LoadAnimationFrames, CreateFallbackSprite giữ nguyên) ...
+        // --- HÀM SET UP ANIMATION MỚI (TỪ FORM1.CS) ---
         public void SetUpAnimations()
         {
-            animations.Clear();
+            // Lấy đường dẫn gốc của dự án
+            string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\"));
+
+            // SỬA ĐƯỜNG DẪN Ở ĐÂY: Thêm "SwordMan" vào đường dẫn Player
+            string playerRootBase = Path.Combine(projectRoot, "ImgSource", "Char", "Player");
+            string playerRoot = Path.Combine(playerRootBase, "SwordMan"); // Đường dẫn cụ thể tới SwordMan
+
+            if (!Directory.Exists(playerRoot))
+            {
+                // Thông báo lỗi chỉ đường dẫn cụ thể hơn
+                MessageBox.Show($"Lỗi: Không tìm thấy thư mục '{playerRoot}'.\nHãy chắc chắn bạn có thư mục 'ImgSource/Char/Player/SwordMan' trong project và đã thiết lập 'Copy to Output Directory'.", "Lỗi tải ảnh", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                CreateFallbackSprite(); // Tạo sprite thay thế
+                return; // Thoát khỏi hàm nếu không có thư mục gốc
+            }
 
             try
             {
-                string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\"));
-                string playerSpritePath = Path.Combine(projectRoot, "player");
-                string swordsmanSpritePath = Path.Combine(projectRoot, "Swordsman");
+                // 1. Stand
+                string idleRoot = Path.Combine(playerRoot, "Stand");
+                idleActivity = new AnimationActivity(10);
+                idleActivity.LoadImages(
+                    Path.Combine(idleRoot, "Back"), Path.Combine(idleRoot, "Front"),
+                    Path.Combine(idleRoot, "Left"), Path.Combine(idleRoot, "Right")
+                );
 
-                if (!Directory.Exists(playerSpritePath))
+                // 2. Walk
+                string walkRoot = Path.Combine(playerRoot, "Walk");
+                walkActivity = new AnimationActivity(6);
+                walkActivity.LoadImages(
+                    Path.Combine(walkRoot, "Back"), Path.Combine(walkRoot, "Front"),
+                    Path.Combine(walkRoot, "Left"), Path.Combine(walkRoot, "Right")
+                );
+
+                // 3. Run
+                string runRoot = Path.Combine(playerRoot, "Run");
+                runActivity = new AnimationActivity(4);
+                runActivity.LoadImages(
+                    Path.Combine(runRoot, "Back"), Path.Combine(runRoot, "Front"),
+                    Path.Combine(runRoot, "Left"), Path.Combine(runRoot, "Right")
+                );
+
+                // 4. Attack (Stand)
+                string attackRoot = Path.Combine(playerRoot, "Atk");
+                attackActivity = new AnimationActivity(3);
+                attackActivity.IsLooping = false;
+                attackActivity.LoadImages(
+                    Path.Combine(attackRoot, "Back"), Path.Combine(attackRoot, "Front"),
+                    Path.Combine(attackRoot, "Left"), Path.Combine(attackRoot, "Right")
+                );
+
+                // 5. Walk_Atk
+                string walkAtkRoot = Path.Combine(playerRoot, "Walk_Atk");
+                walkAttackActivity = new AnimationActivity(3);
+                walkAttackActivity.IsLooping = false;
+                walkAttackActivity.LoadImages(
+                    Path.Combine(walkAtkRoot, "Back"), Path.Combine(walkAtkRoot, "Front"),
+                    Path.Combine(walkAtkRoot, "Left"), Path.Combine(walkAtkRoot, "Right")
+                );
+
+                // 6. Run_Atk
+                string runAtkRoot = Path.Combine(playerRoot, "Run_Atk");
+                runAttackActivity = new AnimationActivity(3);
+                runAttackActivity.IsLooping = false;
+                runAttackActivity.LoadImages(
+                    Path.Combine(runAtkRoot, "Back"), Path.Combine(runAtkRoot, "Front"),
+                    Path.Combine(runAtkRoot, "Left"), Path.Combine(runAtkRoot, "Right")
+                );
+
+                // 7. Hurt
+                string hurtRoot = Path.Combine(playerRoot, "Hurt");
+                hurtActivity = new AnimationActivity(5);
+                hurtActivity.IsLooping = false;
+                hurtActivity.LoadImages(
+                    Path.Combine(hurtRoot, "Back"), Path.Combine(hurtRoot, "Front"),
+                    Path.Combine(hurtRoot, "Left"), Path.Combine(hurtRoot, "Right")
+                );
+
+                // 8. Death
+                string deathRoot = Path.Combine(playerRoot, "Death");
+                deathActivity = new AnimationActivity(8);
+                deathActivity.IsLooping = false;
+                deathActivity.LoadImages(
+                    Path.Combine(deathRoot, "Back"), Path.Combine(deathRoot, "Front"),
+                    Path.Combine(deathRoot, "Left"), Path.Combine(deathRoot, "Right")
+                );
+
+                // Kiểm tra lại idleActivity sau khi load
+                if (idleActivity != null)
                 {
-                    MessageBox.Show($"Lỗi: Không tìm thấy thư mục '{playerSpritePath}'.\nHãy tạo thư mục 'player' trong dự án và đặt ảnh đi bộ vào đó.", "Lỗi tải ảnh", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    CreateFallbackSprite();
-                    return;
-                }
-                if (!Directory.Exists(swordsmanSpritePath))
-                {
-                    MessageBox.Show($"Lỗi: Không tìm thấy thư mục '{swordsmanSpritePath}'.\nHãy tạo thư mục 'Swordsman' trong dự án và đặt ảnh đứng yên/tấn công/đỡ vào đó.", "Lỗi tải ảnh", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    CreateFallbackSprite();
-                    return;
-                }
-
-                LoadAnimationFrames("walk_up", playerSpritePath, "*Back*.png");
-                LoadAnimationFrames("walk_down", playerSpritePath, "*Front*.png");
-                LoadAnimationFrames("walk_left", playerSpritePath, "*Left*.png");
-                LoadAnimationFrames("walk_right", playerSpritePath, "*Right*.png");
-
-                LoadAnimationFrames("stand_up", swordsmanSpritePath, "*Stand_Back*.png");
-                LoadAnimationFrames("stand_down", swordsmanSpritePath, "*Stand_Font*.png");
-                LoadAnimationFrames("stand_left", swordsmanSpritePath, "*Stand_Left*.png");
-                LoadAnimationFrames("stand_right", swordsmanSpritePath, "*Stand_Right*.png");
-
-                LoadAnimationFrames("attack_up", swordsmanSpritePath, "*Attack_Back*.png");
-                LoadAnimationFrames("attack_down", swordsmanSpritePath, "*Attack_Font*.png");
-                LoadAnimationFrames("attack_left", swordsmanSpritePath, "*Attack_Left*.png");
-                LoadAnimationFrames("attack_right", swordsmanSpritePath, "*Attack_Right*.png");
-
-                LoadAnimationFrames("block_up", swordsmanSpritePath, "*Block_Back*.png");
-                LoadAnimationFrames("block_down", swordsmanSpritePath, "*Block_Font*.png");
-                LoadAnimationFrames("block_left", swordsmanSpritePath, "*Block_Left*.png");
-                LoadAnimationFrames("block_right", swordsmanSpritePath, "*Block_Right*.png");
-
-
-                if (animations.ContainsKey("stand_down") && animations["stand_down"].Count > 0)
-                {
-                    currentSprite = animations["stand_down"][0];
-                }
-                else
-                {
-                    MessageBox.Show("Cảnh báo: Không tìm thấy ảnh đứng yên ('stand_down').", "Thiếu ảnh", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    if (animations.Count > 0 && animations.First().Value.Count > 0)
-                        currentSprite = animations.First().Value.First();
-                    else
+                    currentSprite = idleActivity.GetDefaultFrame("down");
+                    if (currentSprite == null)
+                    {
+                        // Sửa đường dẫn trong thông báo lỗi
+                        MessageBox.Show("Không tìm thấy ảnh đứng yên mặc định (Front)! Hãy kiểm tra lại thư mục 'ImgSource/Char/Player/SwordMan/Stand/Front'.");
                         CreateFallbackSprite();
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Lỗi nghiêm trọng khi tải ảnh (Kiểm tra thư mục 'player' và 'Swordsman'): " + ex.Message, "Lỗi tải ảnh", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                CreateFallbackSprite();
-            }
-        }
-        private void LoadAnimationFrames(string animationName, string folderPath, string searchPattern)
-        {
-            try
-            {
-                var files = Directory.GetFiles(folderPath, searchPattern)
-                                     .OrderBy(f => f)
-                                     .Select(f => Image.FromFile(f))
-                                     .ToList();
-                if (files.Count > 0)
-                {
-                    animations[animationName] = files;
+                    }
                 }
                 else
                 {
+                    MessageBox.Show("Lỗi: Không thể khởi tạo idleActivity. Kiểm tra đường dẫn và file ảnh.");
+                    CreateFallbackSprite();
                 }
-            }
-            catch (DirectoryNotFoundException)
-            {
+
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi khi tải ảnh cho '{animationName}': {ex.Message}");
+                MessageBox.Show("Lỗi nghiêm trọng khi tải ảnh: " + ex.Message);
+                CreateFallbackSprite(); // Tạo sprite thay thế nếu có lỗi
             }
         }
+
+        // --- HÀM TẠO SPRITE THAY THẾ ---
         private void CreateFallbackSprite()
         {
-            Bitmap bmp = new Bitmap(this.Width, this.Height);
-            using (Graphics g = Graphics.FromImage(bmp)) { g.Clear(Color.Red); }
+            // Tạo 1 ảnh màu đỏ đơn giản nếu không tải được ảnh
+            Bitmap bmp = new Bitmap(this.Width > 0 ? this.Width : 32, this.Height > 0 ? this.Height : 32);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.Clear(Color.Blue); // Vẽ màu xanh để dễ nhận biết
+                using (Pen p = new Pen(Color.Yellow, 2))
+                {
+                    g.DrawRectangle(p, 0, 0, bmp.Width - 1, bmp.Height - 1);
+                    g.DrawLine(p, 0, 0, bmp.Width, bmp.Height);
+                    g.DrawLine(p, bmp.Width, 0, 0, bmp.Height);
+                }
+            }
             currentSprite = bmp;
-            animations["fallback"] = new List<Image> { currentSprite };
-            currentAnimationName = "fallback";
+
+            // Đảm bảo idleActivity không null để tránh lỗi sau này
+            if (idleActivity == null) idleActivity = new AnimationActivity();
+            if (walkActivity == null) walkActivity = new AnimationActivity();
+            if (runActivity == null) runActivity = new AnimationActivity();
+            if (attackActivity == null) { attackActivity = new AnimationActivity(); attackActivity.IsLooping = false; }
+            if (walkAttackActivity == null) { walkAttackActivity = new AnimationActivity(); walkAttackActivity.IsLooping = false; }
+            if (runAttackActivity == null) { runAttackActivity = new AnimationActivity(); runAttackActivity.IsLooping = false; }
+            if (hurtActivity == null) { hurtActivity = new AnimationActivity(); hurtActivity.IsLooping = false; }
+            if (deathActivity == null) { deathActivity = new AnimationActivity(); deathActivity.IsLooping = false; }
         }
 
 
-        // HÀM UPDATE CHÍNH (ĐÃ CẬP NHẬT)
+        // --- HÀM UPDATE CHÍNH (LOGIC TỪ FORM1.CS) ---
         public override void Update()
         {
-            // --- THÊM MỚI: Xử lý Buffs ---
+            // 0. Cập nhật Buffs (từ logic cũ)
             UpdateBuffs();
-            // -----------------------------
 
-            if (CurrentState == PlayerState.Fallen)
-            {
-                UpdateAnimationState();
-                return;
-            }
+            // 1. QUẢN LÝ COOLDOWN & INPUT
+            if (dashCooldown > 0) dashCooldown--;
 
-            if (actionTimer > 0)
+            bool triggerDash = false;
+            bool triggerAttack = false;
+
+            // Chỉ nhận input hành động nếu không bị khóa (chết, bị thương, đang lướt, đang tấn công)
+            if (!isDead && !isHurt && !isDashing && !isAttacking)
             {
-                actionTimer--;
-                if (actionTimer <= 0)
+                // Xử lý Input Dash (Lướt)
+                if (AttemptDashInput && Stamina >= DASH_COST && dashCooldown <= 0)
                 {
-                    if (CurrentState == PlayerState.Dashing)
-                    {
-                        CurrentState = PlayerState.Idle;
-                        MoveSpeed = BASE_SPEED;
-                    }
-                    else if (CurrentState == PlayerState.Attacking)
-                    {
-                        CurrentState = PlayerState.Idle;
-                    }
+                    triggerDash = true; // Đánh dấu sẽ lướt
+                }
+                // Xử lý Input Attack (Tấn công)
+                else if (AttemptAttackInput)
+                {
+                    triggerAttack = true; // Đánh dấu sẽ tấn công
                 }
             }
+            // Reset cờ input ngay lập tức sau khi kiểm tra
+            AttemptDashInput = false;
+            AttemptAttackInput = false; // Quan trọng: Reset ngay để không bị lặp lại ở frame sau
 
-            if (actionTimer <= 0 || CurrentState == PlayerState.Idle || CurrentState == PlayerState.Walking)
+            // 2. XÁC ĐỊNH INPUT DI CHUYỂN
+            float moveX = 0;
+            float moveY = 0;
+            bool isMovingInput = false;
+
+            // Cho phép nhận input di chuyển ngay cả khi đang tấn công/lướt (để đổi hướng nhìn)
+            // nhưng không cho di chuyển khi chết/bị thương
+            if (!isDead && !isHurt)
             {
-                if (AttemptBlock)
+                if (MoveLeft) moveX = -1;
+                if (MoveRight) moveX = 1;
+                if (MoveUp) moveY = -1;
+                if (MoveDown) moveY = 1;
+                if (MoveLeft && MoveRight) moveX = 0;
+                if (MoveUp && MoveDown) moveY = 0;
+
+                if (moveX != 0 && moveY != 0)
                 {
-                    IsBlocking = true;
+                    const float normalizationFactor = 0.7071f;
+                    moveX *= normalizationFactor;
+                    moveY *= normalizationFactor;
+                }
+            }
+            isMovingInput = moveX != 0 || moveY != 0;
+
+
+            // 3. CẬP NHẬT TRẠNG THÁI VÀ HOẠT ẢNH (STATE MACHINE)
+            bool canMove = true;
+            string newActivityState = "";
+            string currentDirection = lastFacingDirection;
+
+            // Cập nhật hướng nhìn dựa trên input di chuyển (ưu tiên hơn hướng nhìn cũ)
+            if (isMovingInput)
+            {
+                if (moveX > 0) currentDirection = "right";
+                else if (moveX < 0) currentDirection = "left";
+                else if (moveY < 0) currentDirection = "up";
+                else if (moveY > 0) currentDirection = "down";
+            }
+            // Nếu không di chuyển nhưng đang tấn công hoặc lướt, giữ hướng lướt/tấn công
+            else if (isDashing)
+            {
+                if (dashDirectionX > 0) currentDirection = "right";
+                else if (dashDirectionX < 0) currentDirection = "left";
+                else if (dashDirectionY < 0) currentDirection = "up";
+                else if (dashDirectionY > 0) currentDirection = "down";
+            }
+            // Nếu không làm gì cả, giữ hướng nhìn cuối cùng
+            else
+            {
+                currentDirection = lastFacingDirection;
+            }
+            lastFacingDirection = currentDirection; // Lưu lại hướng nhìn cuối cùng
+
+
+            // Xử lý State Machine theo thứ tự ưu tiên
+            // ƯU TIÊN 1: CHẾT
+            if (isDead)
+            {
+                canMove = false;
+                newActivityState = "dead_" + currentDirection;
+                if (currentActivityState != newActivityState) { currentActivityState = newActivityState; deathActivity?.ResetFrame(); }
+                currentSprite = deathActivity?.GetNextFrame(currentDirection);
+            }
+            // ƯU TIÊN 2: BỊ THƯƠNG
+            else if (isHurt)
+            {
+                canMove = false;
+                newActivityState = "hurt_" + currentDirection;
+                if (currentActivityState != newActivityState) { currentActivityState = newActivityState; hurtActivity?.ResetFrame(); }
+                currentSprite = hurtActivity?.GetNextFrame(currentDirection);
+                if (hurtActivity != null && hurtActivity.IsFinished) { isHurt = false; }
+            }
+            // ƯU TIÊN 3: LƯỚT (DASHING) - Kiểm tra triggerDash trước
+            else if (triggerDash)
+            {
+                Stamina -= DASH_COST;
+                isDashing = true; // Kích hoạt trạng thái lướt
+                dashTimer = DASH_DURATION_FRAMES;
+                dashCooldown = DASH_COOLDOWN_FRAMES;
+                DashCount++;
+
+                // Xác định hướng lướt (ưu tiên hướng di chuyển nếu có)
+                if (isMovingInput)
+                {
+                    dashDirectionX = moveX; // Đã chuẩn hóa
+                    dashDirectionY = moveY; // Đã chuẩn hóa
+                }
+                else // Lướt theo hướng nhìn cuối cùng
+                {
+                    if (lastFacingDirection == "left") { dashDirectionX = -1; dashDirectionY = 0; }
+                    else if (lastFacingDirection == "right") { dashDirectionX = 1; dashDirectionY = 0; }
+                    else if (lastFacingDirection == "up") { dashDirectionX = 0; dashDirectionY = -1; }
+                    else if (lastFacingDirection == "down") { dashDirectionX = 0; dashDirectionY = 1; }
+                    else { dashDirectionX = 1; dashDirectionY = 0; } // Fallback
+                }
+                // Cập nhật hướng nhìn theo hướng lướt
+                currentDirection = lastFacingDirection;
+
+                canMove = false; // Không di chuyển bình thường khi lướt
+                newActivityState = "run_" + currentDirection; // Dùng anim chạy khi lướt
+                if (currentActivityState != newActivityState) { currentActivityState = newActivityState; runActivity?.ResetFrame(); }
+                currentSprite = runActivity?.GetNextFrame(currentDirection);
+            }
+            else if (isDashing) // Nếu đang trong trạng thái lướt (tiếp tục từ frame trước)
+            {
+                canMove = false;
+                // Hướng nhìn đã được set khi bắt đầu lướt
+                newActivityState = "run_" + currentDirection;
+                // Không cần reset frame ở đây
+                currentSprite = runActivity?.GetNextFrame(currentDirection);
+                dashTimer--;
+                if (dashTimer <= 0) { isDashing = false; } // Kết thúc lướt
+            }
+            // ƯU TIÊN 4: ĐỠ ĐÒN (Blocking)
+            else if (IsBlocking)
+            {
+                canMove = true; // Cho phép di chuyển chậm
+                newActivityState = "idle_" + currentDirection; // Tạm dùng idle anim
+                if (currentActivityState != newActivityState) { currentActivityState = newActivityState; idleActivity?.ResetFrame(); }
+                currentSprite = idleActivity?.GetNextFrame(currentDirection);
+            }
+            // ƯU TIÊN 5: TẤN CÔNG - Kiểm tra triggerAttack trước
+            else if (triggerAttack)
+            {
+                isAttacking = true; // Kích hoạt trạng thái tấn công
+                canMove = !(AttemptRun && isMovingInput); // Chỉ không di chuyển khi Đứng-Đánh
+
+                if (AttemptRun && isMovingInput)
+                { // Chạy-Đánh
+                    newActivityState = "run_attack_" + currentDirection;
+                    if (currentActivityState != newActivityState) { currentActivityState = newActivityState; runAttackActivity?.ResetFrame(); }
+                    currentSprite = runAttackActivity?.GetNextFrame(currentDirection);
+                }
+                else if (isMovingInput)
+                { // Đi-Đánh
+                    newActivityState = "walk_attack_" + currentDirection;
+                    if (currentActivityState != newActivityState) { currentActivityState = newActivityState; walkAttackActivity?.ResetFrame(); }
+                    currentSprite = walkAttackActivity?.GetNextFrame(currentDirection);
+                }
+                else
+                { // Đứng-Đánh
+                    newActivityState = "attack_" + currentDirection;
+                    if (currentActivityState != newActivityState) { currentActivityState = newActivityState; attackActivity?.ResetFrame(); }
+                    currentSprite = attackActivity?.GetNextFrame(currentDirection);
+                }
+            }
+            else if (isAttacking) // Nếu đang trong trạng thái tấn công (tiếp tục từ frame trước)
+            {
+                canMove = !(AttemptRun && isMovingInput); // Kiểm tra lại di chuyển
+                AnimationActivity currentAttackAnim = attackActivity; // Anim mặc định
+                if (AttemptRun && isMovingInput)
+                {
+                    newActivityState = "run_attack_" + currentDirection;
+                    currentAttackAnim = runAttackActivity;
+                }
+                else if (isMovingInput)
+                {
+                    newActivityState = "walk_attack_" + currentDirection;
+                    currentAttackAnim = walkAttackActivity;
                 }
                 else
                 {
-                    IsBlocking = false;
+                    newActivityState = "attack_" + currentDirection;
+                    currentAttackAnim = attackActivity;
                 }
-
-                if (AttemptAttack && !IsBlocking)
+                // Không reset frame ở đây
+                currentSprite = currentAttackAnim?.GetNextFrame(currentDirection);
+                // Kiểm tra kết thúc animation
+                if (currentAttackAnim != null && currentAttackAnim.IsFinished) { isAttacking = false; }
+            }
+            // ƯU TIÊN 6: DI CHUYỂN (Chạy hoặc Đi bộ)
+            else if (isMovingInput)
+            {
+                canMove = true;
+                if (AttemptRun) // Chạy
                 {
-                    CurrentState = PlayerState.Attacking;
-                    actionTimer = 15;
-                    AttemptAttack = false;
+                    newActivityState = "run_" + currentDirection;
+                    if (currentActivityState != newActivityState) { currentActivityState = newActivityState; runActivity?.ResetFrame(); }
+                    currentSprite = runActivity?.GetNextFrame(currentDirection);
                 }
-                else if (AttemptDash && Stamina >= DASH_COST && !IsBlocking)
+                else // Đi bộ
                 {
-                    Stamina -= DASH_COST;
-                    CurrentState = PlayerState.Dashing;
-                    MoveSpeed = DASH_SPEED;
-                    actionTimer = DASH_DURATION_FRAMES;
-                    DashCount++;
-                    AttemptDash = false;
+                    newActivityState = "walk_" + currentDirection;
+                    if (currentActivityState != newActivityState) { currentActivityState = newActivityState; walkActivity?.ResetFrame(); }
+                    currentSprite = walkActivity?.GetNextFrame(currentDirection);
                 }
             }
-            if (CurrentState == PlayerState.Attacking) AttemptAttack = false;
-            if (CurrentState == PlayerState.Dashing) AttemptDash = false;
+            // ƯU TIÊN 7: ĐỨNG YÊN
+            else
+            {
+                canMove = false;
+                newActivityState = "idle_" + currentDirection;
+                if (currentActivityState != newActivityState) { currentActivityState = newActivityState; idleActivity?.ResetFrame(); }
+                currentSprite = idleActivity?.GetNextFrame(currentDirection);
+            }
 
+            // --- Fallback cuối cùng ---
+            if (currentSprite == null) { CreateFallbackSprite(); }
 
-            if (CurrentState != PlayerState.Dashing && CurrentState != PlayerState.Attacking && !IsBlocking)
+            // 4. HỒI STAMINA
+            if (!isDashing && !isAttacking && !AttemptRun && !IsBlocking)
             {
                 if (Stamina < MAX_STAMINA)
                 {
@@ -250,342 +475,69 @@ namespace Main.Tri
                 }
             }
 
-            if (CurrentState != PlayerState.Dashing && CurrentState != PlayerState.Attacking)
+            // 5. TÍNH TOÁN VECTOR DI CHUYỂN CUỐI CÙNG
+            calculatedMoveX = 0;
+            calculatedMoveY = 0;
+            if (isDashing)
             {
-                if (MoveLeft || MoveRight || MoveUp || MoveDown)
-                {
-                    CurrentState = PlayerState.Walking;
-                }
-                else
-                {
-                    CurrentState = PlayerState.Idle;
-                }
+                calculatedMoveX = dashDirectionX * dashSpeed;
+                calculatedMoveY = dashDirectionY * dashSpeed;
             }
-
-            UpdateAnimationState();
+            else if (canMove) // Chỉ di chuyển nếu state cho phép
+            {
+                // Chỉ chạy nếu đang giữ phím chạy VÀ có input di chuyển VÀ không đang tấn công/đỡ
+                bool isActuallyRunning = AttemptRun && isMovingInput && !isAttacking && !IsBlocking;
+                float currentSpeed = isActuallyRunning ? playerRunSpeed : playerSpeed;
+                // Giảm tốc khi đỡ đòn
+                if (IsBlocking || ActiveBuffs.ContainsKey(BuffType.Defense))
+                {
+                    currentSpeed *= 0.5f;
+                }
+                calculatedMoveX = moveX * currentSpeed;
+                calculatedMoveY = moveY * currentSpeed;
+            }
         }
 
-        // ... (Hàm CalculateMovementVector giữ nguyên) ...
+        // --- HÀM TÍNH TOÁN DI CHUYỂN (ĐÃ SỬA) ---
+        // Hàm này giờ chỉ trả về vector đã tính toán trong Update()
         public PointF CalculateMovementVector(PointF currentPosition)
         {
-            float dx = 0, dy = 0;
-
-            if (CurrentState == PlayerState.Attacking || CurrentState == PlayerState.Fallen)
-            {
-                return PointF.Empty;
-            }
-
-            if (MoveUp) dy -= 1;
-            if (MoveDown) dy += 1;
-            if (MoveLeft) dx -= 1;
-            if (MoveRight) dx += 1;
-
-            if (dx > 0) lastFacingDirection = "right";
-            else if (dx < 0) lastFacingDirection = "left";
-            else if (dy > 0) lastFacingDirection = "down";
-            else if (dy < 0) lastFacingDirection = "up";
-
-            if (CurrentState == PlayerState.Dashing)
-            {
-                if (lastFacingDirection == "left") dx = -1;
-                else if (lastFacingDirection == "right") dx = 1;
-                else dx = 0;
-
-                if (lastFacingDirection == "up") dy = -1;
-                else if (lastFacingDirection == "down") dy = 1;
-                else dy = 0;
-            }
-
-            if (dx != 0 && dy != 0)
-            {
-                float length = (float)System.Math.Sqrt(dx * dx + dy * dy);
-                dx /= length;
-                dy /= length;
-            }
-
-            float currentSpeed = (CurrentState == PlayerState.Dashing) ? DASH_SPEED : BASE_SPEED;
-
-            // --- CẬP NHẬT: Kiểm tra Buff Phòng ngự ---
-            if (IsBlocking || ActiveBuffs.ContainsKey(BuffType.Defense))
-            {
-                // Nếu đang đỡ đòn HOẶC có buff phòng ngự, giảm tốc độ
-                currentSpeed *= 0.5f;
-            }
-
-            return new PointF(dx * currentSpeed, dy * currentSpeed);
+            return new PointF(calculatedMoveX, calculatedMoveY);
         }
 
-        // ... (Hàm Dash, Attack, Block, StopDash giữ nguyên) ...
-        public void Dash()
-        {
-            if (CurrentState != PlayerState.Dashing && CurrentState != PlayerState.Attacking && CurrentState != PlayerState.Fallen)
-            {
-                AttemptDash = true;
-            }
-        }
-        public void Attack()
-        {
-            if (CurrentState != PlayerState.Dashing && CurrentState != PlayerState.Attacking && CurrentState != PlayerState.Fallen)
-            {
-                AttemptAttack = true;
-            }
-        }
-        public void Block(bool isBlocking)
-        {
-            if (CurrentState != PlayerState.Dashing && CurrentState != PlayerState.Attacking && CurrentState != PlayerState.Fallen)
-            {
-                AttemptBlock = isBlocking;
-            }
-            else
-            {
-                AttemptBlock = false;
-            }
-        }
-        public void StopDash()
-        {
-            if (CurrentState == PlayerState.Dashing)
-            {
-                actionTimer = 0;
-                CurrentState = PlayerState.Idle;
-                MoveSpeed = BASE_SPEED;
-            }
-        }
-
-        // --- CÁC HÀM MỚI VỀ VẬT PHẨM ---
-
-        // Thêm vật phẩm vào túi
-        public void AddItem(ItemType itemType, int quantity = 1)
-        {
-            if (Inventory.ContainsKey(itemType))
-            {
-                Inventory[itemType] += quantity;
-            }
-            else
-            {
-                Inventory[itemType] = quantity;
-            }
-            // TODO: Thông báo nhặt được đồ
-        }
-
-        // Sử dụng vật phẩm
-        public void UseItem(ItemType itemType)
-        {
-            if (Inventory.ContainsKey(itemType) && Inventory[itemType] > 0)
-            {
-                Inventory[itemType]--; // Giảm số lượng
-                if (Inventory[itemType] <= 0)
-                {
-                    Inventory.Remove(itemType); // Xóa khỏi túi nếu hết
-                }
-
-                // Kích hoạt hiệu ứng
-                switch (itemType)
-                {
-                    case ItemType.HealthPotion:
-                        CurrentHealth = Math.Min(CurrentHealth + 50, MaxHealth); // Hồi 50 máu
-                        break;
-                    case ItemType.AttackPotion:
-                        AddBuff(BuffType.Attack, 30, 1.5f); // Tăng 50% sát thương trong 30 giây
-                        break;
-                    case ItemType.DefensePotion:
-                        AddBuff(BuffType.Defense, 30, 0.5f); // Giảm 50% sát thương nhận vào trong 30 giây
-                        break;
-                    case ItemType.PoisonResistPotion:
-                        AddBuff(BuffType.PoisonResist, 60, 0); // Kháng độc 60 giây
-                        break;
-                    case ItemType.CoolingWater:
-                        AddBuff(BuffType.Cooling, 60, 0); // Giải nhiệt 60 giây
-                        break;
-                }
-            }
-        }
-
-        // Thêm hoặc làm mới hiệu ứng
-        private void AddBuff(BuffType type, int durationSeconds, float potency)
-        {
-            if (ActiveBuffs.ContainsKey(type))
-            {
-                // Làm mới thời gian
-                ActiveBuffs[type].DurationFrames = durationSeconds * 60;
-            }
-            else
-            {
-                ActiveBuffs[type] = new Buff(type, durationSeconds, potency);
-            }
-        }
-
-        // Cập nhật hiệu ứng (gọi mỗi frame trong Player.Update())
-        private void UpdateBuffs()
-        {
-            // Xử lý kháng độc
-            if (ActiveBuffs.ContainsKey(BuffType.PoisonResist))
-            {
-                IsPoisoned = false; // Luôn xóa độc nếu có buff
-            }
-
-            // Dùng ToList() để tránh lỗi "Collection was modified" khi xóa buff
-            var keys = ActiveBuffs.Keys.ToList();
-            foreach (var buffType in keys)
-            {
-                if (ActiveBuffs[buffType].Tick()) // Tick() đếm ngược và trả về true nếu hết hạn
-                {
-                    ActiveBuffs.Remove(buffType); // Xóa buff nếu hết hạn
-                }
-            }
-        }
-
-        // --- HÀM TÍNH SÁT THƯƠNG (VÍ DỤ) ---
-        // (Bạn sẽ gọi hàm này từ Monster.Attack())
-        public void TakeDamage(float damage)
-        {
-            float finalDamage = damage;
-
-            // Giảm sát thương nếu đang đỡ
-            if (IsBlocking)
-            {
-                finalDamage *= 0.25f; // Giảm 75% sát thương
-            }
-            // Giảm sát thương nếu có buff phòng ngự
-            else if (ActiveBuffs.ContainsKey(BuffType.Defense))
-            {
-                finalDamage *= ActiveBuffs[BuffType.Defense].Potency; // ví dụ: 0.5f
-            }
-
-            CurrentHealth -= finalDamage;
-            if (CurrentHealth < 0) CurrentHealth = 0;
-            // TODO: Thêm logic chết
-        }
-
-        // (Bạn sẽ dùng hàm này khi Player tấn công)
-        public float GetAttackDamage()
-        {
-            float baseDamage = 10; // Sát thương cơ bản
-            if (ActiveBuffs.ContainsKey(BuffType.Attack))
-            {
-                baseDamage *= ActiveBuffs[BuffType.Attack].Potency; // ví dụ: 1.5f
-            }
-            return baseDamage;
-        }
-
-        // ... (Hàm UpdateAnimationState và Animate giữ nguyên) ...
-        private void UpdateAnimationState()
-        {
-            string newAnimationName = "";
-
-            switch (CurrentState)
-            {
-                case PlayerState.Walking:
-                    newAnimationName = "walk_" + lastFacingDirection;
-                    break;
-                case PlayerState.Dashing:
-                    newAnimationName = "walk_" + lastFacingDirection;
-                    break;
-                case PlayerState.Attacking:
-                    newAnimationName = "attack_" + lastFacingDirection;
-                    break;
-                case PlayerState.Idle:
-                case PlayerState.Blocking:
-                default:
-                    if (IsBlocking)
-                    {
-                        newAnimationName = "block_" + lastFacingDirection;
-                    }
-                    else if (CurrentState == PlayerState.Walking)
-                    {
-                        newAnimationName = "walk_" + lastFacingDirection;
-                    }
-                    else
-                    {
-                        newAnimationName = "stand_" + lastFacingDirection;
-                    }
-                    break;
-                case PlayerState.Fallen:
-                    newAnimationName = "stand_down";
-                    break;
-
-            }
-
-
-            newAnimationName = newAnimationName.Replace("up", "up").Replace("down", "down").Replace("left", "left").Replace("right", "right");
-
-            if (!animations.ContainsKey(newAnimationName) || animations[newAnimationName].Count == 0)
-            {
-                if (newAnimationName.StartsWith("block_") || newAnimationName.StartsWith("attack_"))
-                {
-                    newAnimationName = "stand_" + lastFacingDirection;
-                    if (!animations.ContainsKey(newAnimationName) || animations[newAnimationName].Count == 0)
-                    {
-                        newAnimationName = "fallback";
-                    }
-                }
-                else
-                {
-                    newAnimationName = "fallback";
-                }
-
-            }
-
-
-            if (currentAnimationName != newAnimationName)
-            {
-                currentAnimationName = newAnimationName;
-                animationStep = 0;
-            }
-
-            Animate();
-        }
-        private void Animate()
-        {
-            if (!animations.ContainsKey(currentAnimationName) || animations[currentAnimationName].Count == 0)
-            {
-                if (!animations.ContainsKey("fallback")) CreateFallbackSprite();
-                currentSprite = animations["fallback"][0];
-                return;
-            }
-
-            List<Image> currentFrames = animations[currentAnimationName];
-
-            animationSlowDown++;
-            if (animationSlowDown > ANIMATION_SPEED)
-            {
-                animationSlowDown = 0;
-                animationStep++;
-                if (animationStep >= currentFrames.Count)
-                {
-                    if (CurrentState == PlayerState.Attacking)
-                    {
-                        animationStep = currentFrames.Count - 1;
-                    }
-                    else
-                    {
-                        animationStep = 0;
-                    }
-                }
-                currentSprite = currentFrames[animationStep];
-            }
-        }
-
-
-        // HÀM VẼ (ĐÃ CẬP NHẬT ĐỂ VẼ HIỆU ỨNG BUFF)
+        // --- HÀM VẼ (ĐÃ SỬA) ---
         public override void Draw(Graphics g)
         {
-            // ... (Phần vẽ currentSprite, thanh Máu/Stamina, hiệu ứng Độc giữ nguyên) ...
+            // 1. Vẽ nhân vật
             if (currentSprite != null)
             {
-                float drawWidth = this.Width; // * 1.0f; // Sửa lại kích thước 1:1
-                float drawHeight = this.Height; // * 1.0f;
+                // SỬA KÍCH THƯỚC VẼ: Dùng tỷ lệ thay vì cố định 100x100
+                float drawWidth = this.Width * DRAW_SCALE; // Ví dụ: 28 * 2.0 = 56
+                float drawHeight = this.Height * DRAW_SCALE; // Ví dụ: 28 * 2.0 = 56
+
+                // Vẽ ảnh căn giữa hitbox (X, Y)
                 float drawX = X - (drawWidth - this.Width) / 2;
-                float drawY = Y - (drawHeight - this.Height) / 2;
+                float drawY = Y - (drawHeight - this.Height) / 2; // Có thể trừ thêm để sprite cao hơn hitbox
 
                 g.DrawImage(currentSprite, drawX, drawY, drawWidth, drawHeight);
             }
             else
             {
-                using (SolidBrush brush = new SolidBrush(Color.Blue))
+                // Nếu currentSprite vẫn null sau tất cả kiểm tra, vẽ fallback
+                using (SolidBrush brush = new SolidBrush(Color.Blue)) // Màu xanh để dễ nhận biết
                 {
-                    g.FillEllipse(brush, X, Y, Width, Height);
+                    // Vẽ tại vị trí hitbox
+                    g.FillRectangle(brush, X, Y, Width, Height);
+                    using (Pen p = new Pen(Color.Yellow, 2))
+                    {
+                        g.DrawRectangle(p, X, Y, Width - 1, Height - 1);
+                        g.DrawLine(p, X, Y, X + Width, Y + Height);
+                        g.DrawLine(p, X + Width, Y, X, Y + Height);
+                    }
                 }
             }
+
+            // 2. Vẽ thanh Máu/Stamina (Logic cũ)
             const int barWidth = 32;
             const int barHeight = 4;
             float barX = X + (Width - barWidth) / 2;
@@ -596,10 +548,17 @@ namespace Main.Tri
                 g.FillRectangle(bgBrush, barX, barY_Stamina, barWidth, barHeight);
                 g.FillRectangle(bgBrush, barX, barY_Health, barWidth, barHeight);
             }
-            float staminaRatio = CurrentStamina / MaxStamina;
-            float healthRatio = CurrentHealth / MaxHealth;
+            // Đảm bảo MaxStamina/MaxHealth không phải là 0 để tránh lỗi chia cho 0
+            float staminaRatio = (MaxStamina > 0) ? (CurrentStamina / MaxStamina) : 0;
+            float healthRatio = (MaxHealth > 0) ? (CurrentHealth / MaxHealth) : 0;
+            // Đảm bảo tỷ lệ không âm
+            staminaRatio = Math.Max(0, staminaRatio);
+            healthRatio = Math.Max(0, healthRatio);
+
             g.FillRectangle(Brushes.LimeGreen, barX, barY_Stamina, barWidth * staminaRatio, barHeight);
             g.FillRectangle(Brushes.Red, barX, barY_Health, barWidth * healthRatio, barHeight);
+
+            // 3. Vẽ hiệu ứng (Logic cũ)
             if (IsPoisoned)
             {
                 using (Pen poisonPen = new Pen(Color.FromArgb(150, Color.Purple), 2))
@@ -607,11 +566,8 @@ namespace Main.Tri
                     g.DrawEllipse(poisonPen, X - 1, Y - 1, Width + 2, Height + 2);
                 }
             }
-
-            // --- THÊM MỚI: Vẽ Hiệu ứng Buff ---
             if (ActiveBuffs.ContainsKey(BuffType.Attack))
             {
-                // Vẽ vòng tròn màu Cam (Tấn công) dưới chân
                 using (Pen attackPen = new Pen(Color.FromArgb(150, Color.OrangeRed), 3))
                 {
                     g.DrawEllipse(attackPen, X, Y + Height - 5, Width, 8);
@@ -619,14 +575,25 @@ namespace Main.Tri
             }
             if (ActiveBuffs.ContainsKey(BuffType.Defense) || IsBlocking)
             {
-                // Vẽ vòng tròn màu Xám (Phòng ngự) dưới chân
                 using (Pen defensePen = new Pen(Color.FromArgb(150, Color.LightGray), 3))
                 {
                     g.DrawEllipse(defensePen, X + 2, Y + Height - 7, Width - 4, 8);
                 }
             }
-            // ----------------------------------
         }
+
+
+        // --- CÁC HÀM LOGIC CŨ (GIỮ NGUYÊN) ---
+        // (Bao gồm AddItem, UseItem, AddBuff, UpdateBuffs, TakeDamage, GetAttackDamage)
+
+        public void AddItem(ItemType itemType, int quantity = 1) { /* ... */ if (Inventory.ContainsKey(itemType)) { Inventory[itemType] += quantity; } else { Inventory[itemType] = quantity; } }
+        public void UseItem(ItemType itemType) { /* ... */ if (Inventory.ContainsKey(itemType) && Inventory[itemType] > 0) { Inventory[itemType]--; if (Inventory[itemType] <= 0) { Inventory.Remove(itemType); } switch (itemType) { case ItemType.HealthPotion: CurrentHealth = Math.Min(CurrentHealth + 50, MaxHealth); break; case ItemType.AttackPotion: AddBuff(BuffType.Attack, 30, 1.5f); break; case ItemType.DefensePotion: AddBuff(BuffType.Defense, 30, 0.5f); break; case ItemType.PoisonResistPotion: AddBuff(BuffType.PoisonResist, 60, 0); break; case ItemType.CoolingWater: AddBuff(BuffType.Cooling, 60, 0); break; } } }
+        private void AddBuff(BuffType type, int durationSeconds, float potency) { /* ... */ if (ActiveBuffs.ContainsKey(type)) { ActiveBuffs[type].DurationFrames = durationSeconds * 60; } else { ActiveBuffs[type] = new Buff(type, durationSeconds, potency); } }
+        private void UpdateBuffs() { /* ... */ if (ActiveBuffs.ContainsKey(BuffType.PoisonResist)) { IsPoisoned = false; } var keys = ActiveBuffs.Keys.ToList(); foreach (var buffType in keys) { if (ActiveBuffs.ContainsKey(buffType)) { if (ActiveBuffs[buffType].Tick()) { ActiveBuffs.Remove(buffType); } } } }
+        public void TakeDamage(float damage) { /* ... */ if (!isHurt && !isDead && hurtActivity != null) { isHurt = true; hurtActivity.ResetFrame(); } float finalDamage = damage; if (IsBlocking) { finalDamage *= 0.25f; } else if (ActiveBuffs.ContainsKey(BuffType.Defense)) { finalDamage *= ActiveBuffs[BuffType.Defense].Potency; } CurrentHealth -= finalDamage; if (CurrentHealth <= 0 && !isDead) { CurrentHealth = 0; isDead = true; deathActivity?.ResetFrame(); } }
+        public float GetAttackDamage() { /* ... */ float baseDamage = 10; if (ActiveBuffs.ContainsKey(BuffType.Attack)) { baseDamage *= ActiveBuffs[BuffType.Attack].Potency; } return baseDamage; }
+
+        // Xóa các hàm logic di chuyển cũ
     }
 }
 

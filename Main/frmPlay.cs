@@ -220,6 +220,11 @@ namespace Main
             public string GameStateJson { get; set; } // Dữ liệu game (dạng JSON)
             public DateTime Timestamp { get; set; }
         }
+
+        private void frmPlay_Load(object sender, EventArgs e)
+        {
+
+        }
         // =============================================================
 
     }

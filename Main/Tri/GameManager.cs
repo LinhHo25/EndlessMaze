@@ -246,7 +246,7 @@ namespace Main.Tri // Đã cập nhật namespace
                 case Keys.Left: Player.MoveLeft = true; break;
                 case Keys.D:
                 case Keys.Right: Player.MoveRight = true; break;
-                case Keys.Space: Player.AttemptDash = true; break; // Lướt
+                case Keys.Space: Player.AttemptDashInput = true; break; // Lướt
                 case Keys.P: // Tạm dừng/Tiếp tục
                     CurrentState = (CurrentState == GameState.Running) ? GameState.Paused : GameState.Running;
                     break;
@@ -271,7 +271,7 @@ namespace Main.Tri // Đã cập nhật namespace
                 case Keys.Left: Player.MoveLeft = false; break;
                 case Keys.D:
                 case Keys.Right: Player.MoveRight = false; break;
-                case Keys.Space: Player.AttemptDash = false; break;
+                case Keys.Space: Player.AttemptDashInput = false; break;
             }
         }
     }

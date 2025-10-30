@@ -25,21 +25,24 @@ namespace Main
             InitializeComponent();
             _mainMenuForm = mainMenuForm;
             _gameMap = mapForm;
-            _playerRef = mapForm.Player; // Lấy tham chiếu Player từ map
+            // Thêm kiểm tra null trước khi truy cập Player
+            _playerRef = mapForm?.Player; // Lấy tham chiếu Player từ map
 
             LoadPixelFont();
             ApplyPixelStyle();
 
-            // Bật KeyPreview để bắt phím ESC
-            this.KeyPreview = true;
-            this.KeyDown += FrmMenu_KeyDown; // Đăng ký sự kiện KeyDown
+            // --- XÓA XỬ LÝ ESCAPE TRONG frmMenu ---
+            // this.KeyPreview = true; // Không cần nữa
+            // this.KeyDown -= FrmMenu_KeyDown; // Gỡ bỏ (nếu đã đăng ký trong Designer)
+            // this.KeyDown += FrmMenu_KeyDown; // Xóa dòng này
+            // ------------------------------------
         }
 
         private void LoadPixelFont()
         {
             try
             {
-                string fontPath = "pixel.ttf";
+                string fontPath = "pixel.ttf"; // Đảm bảo file này có trong thư mục output
                 if (System.IO.File.Exists(fontPath))
                 {
                     byte[] fontData = System.IO.File.ReadAllBytes(fontPath);
@@ -49,27 +52,36 @@ namespace Main
                     fonts.AddMemoryFont(fontPtr, fontData.Length);
                     AddFontMemResourceEx(fontPtr, (uint)fontData.Length, IntPtr.Zero, ref dummy);
                     Marshal.FreeCoTaskMem(fontPtr);
-                    pixelFont = new Font(fonts.Families[0], 12F);
+                    // Cập nhật: Tạo font với kích thước mặc định trước
+                    pixelFont = new Font(fonts.Families[0], 12F); // Kích thước mặc định
                 }
                 else
                 {
+                    Console.WriteLine("Warning: pixel.ttf not found. Using default font.");
                     pixelFont = new Font("Arial", 10F, FontStyle.Bold); // Font dự phòng
                 }
             }
-            catch
+            catch (Exception ex) // Bắt lỗi cụ thể hơn
             {
+                Console.WriteLine($"Error loading pixel font: {ex.Message}");
                 pixelFont = new Font("Arial", 10F, FontStyle.Bold); // Font dự phòng
             }
         }
 
         private void ApplyPixelStyle()
         {
+            // Kiểm tra pixelFont null trước khi dùng
+            if (pixelFont == null) LoadPixelFont(); // Thử tải lại nếu null
+            if (pixelFont == null) return; // Thoát nếu vẫn null
+
             this.BackColor = Color.FromArgb(204, 179, 132); // Màu giấy da
             lblPaused.ForeColor = Color.FromArgb(50, 50, 50); // Màu chữ tối
             lblVolume.ForeColor = Color.FromArgb(50, 50, 50);
 
-            lblPaused.Font = new Font(pixelFont.FontFamily, 16F, FontStyle.Bold);
-            lblVolume.Font = new Font(pixelFont.FontFamily, 10F);
+            // Sử dụng Clone() để tạo font mới với kích thước khác nhau
+            lblPaused.Font = new Font(pixelFont.FontFamily, 16F, FontStyle.Bold); // Clone không cần ép kiểu
+            lblVolume.Font = new Font(pixelFont.FontFamily, 10F); // Clone không cần ép kiểu
+
 
             // Áp dụng font và màu cho các nút
             ApplyButtonStyle(btnItem);
@@ -85,7 +97,9 @@ namespace Main
         // Hàm helper để áp dụng style cho nút
         private void ApplyButtonStyle(Button btn)
         {
-            btn.Font = new Font(pixelFont.FontFamily, 12F, FontStyle.Bold);
+            if (pixelFont == null) return; // Kiểm tra null
+            // Sử dụng Clone()
+            btn.Font = new Font(pixelFont.FontFamily, 12F, FontStyle.Bold); // Clone không cần ép kiểu
             btn.BackColor = Color.FromArgb(52, 143, 118); // Xanh lá
             btn.ForeColor = Color.White;
             btn.FlatStyle = FlatStyle.Flat;
@@ -95,15 +109,9 @@ namespace Main
             btn.MouseLeave += (s, e) => btn.BackColor = Color.FromArgb(52, 143, 118);
         }
 
-        // Sự kiện KeyDown để bắt phím ESC
-        private void FrmMenu_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.Escape)
-            {
-                this.Close(); // Đóng form menu (sẽ resume game)
-                e.Handled = true; // Ngăn không cho form map xử lý ESC nữa
-            }
-        }
+        // --- XÓA HÀM XỬ LÝ ESCAPE TRONG frmMenu ---
+        // private void FrmMenu_KeyDown(object sender, KeyEventArgs e) { ... }
+        // ------------------------------------
 
         // Nút ITEM (ĐÃ SỬA)
         private void btnItem_Click(object sender, EventArgs e)
@@ -122,14 +130,18 @@ namespace Main
         // Nút STATUS
         private void btnStatus_Click(object sender, EventArgs e)
         {
-            frmStatus statusForm = new frmStatus();
+            // Cần truyền Player vào frmStatus nếu muốn hiển thị chỉ số thực
+            // frmStatus statusForm = new frmStatus(_playerRef);
+            frmStatus statusForm = new frmStatus(); // Hiện tại chưa truyền
             statusForm.ShowDialog(this);
         }
 
         // Nút EQUIPMENT
         private void btnEquipment_Click(object sender, EventArgs e)
         {
-            frmEquipment equipForm = new frmEquipment();
+            // Cần truyền Player vào frmEquipment nếu muốn hiển thị trang bị thực
+            // frmEquipment equipForm = new frmEquipment(_playerRef);
+            frmEquipment equipForm = new frmEquipment(); // Hiện tại chưa truyền
             equipForm.ShowDialog(this);
         }
 
@@ -145,12 +157,24 @@ namespace Main
         {
             var confirmResult = MessageBox.Show("Bạn có chắc muốn thoát về Menu chính?\nMọi tiến trình chưa lưu sẽ bị mất.",
                                      "Xác nhận thoát",
-                                     MessageBoxButtons.YesNo);
+                                     MessageBoxButtons.YesNo, MessageBoxIcon.Warning); // Thêm Icon
             if (confirmResult == DialogResult.Yes)
             {
-                _gameMap.ResumeGame(); // Đảm bảo game map không bị pause nữa
-                ((Form)_gameMap).Close(); // Đóng form game map hiện tại
-                _mainMenuForm.Show(); // Hiện lại menu chính
+                // Đảm bảo _gameMap không null
+                if (_gameMap != null)
+                {
+                    _gameMap.ResumeGame(); // Đảm bảo game map không bị pause nữa (quan trọng!)
+                                           // Kiểm tra kiểu trước khi ép kiểu và đóng
+                    if (_gameMap is Form mapForm)
+                    {
+                        mapForm.Close(); // Đóng form game map hiện tại
+                    }
+                }
+                // Đảm bảo _mainMenuForm không null
+                if (_mainMenuForm != null)
+                {
+                    _mainMenuForm.Show(); // Hiện lại menu chính
+                }
                 this.Close(); // Đóng form menu này
             }
         }
@@ -160,15 +184,18 @@ namespace Main
         {
             // TODO: Thêm code xử lý âm lượng ở đây
             // Ví dụ: SoundManager.MasterVolume = trackBarVolume.Value / 10f;
-            // (Giả sử Value từ 0-10, Volume từ 0.0-1.0)
             Console.WriteLine("Âm lượng: " + trackBarVolume.Value); // In ra console để test
         }
 
-        // Đảm bảo game resume khi form menu đóng (bằng nút X hoặc ESC)
+        // --- SỬA LỖI STACKOVERFLOW ---
+        // Xóa bỏ việc gọi ResumeGame() ở đây để tránh lặp vô hạn
         private void frmMenu_FormClosed(object sender, FormClosedEventArgs e)
         {
-            _gameMap.ResumeGame();
+            // KHÔNG gọi _gameMap.ResumeGame() ở đây nữa.
+            // Việc resume đã được thực hiện bởi map khi người dùng nhấn Esc
+            // hoặc khi menu này bị đóng bởi code trong ResumeGame() của map.
         }
+        // -----------------------------
     }
 }
 

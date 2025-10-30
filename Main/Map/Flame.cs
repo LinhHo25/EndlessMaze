@@ -36,7 +36,12 @@ namespace Main.Map
         private bool isSmoky = false;
         private Random rand = new Random();
 
+        // Kích thước hitbox cố định của Player (Thêm vào)
+        private const int PLAYER_HITBOX_SIZE = 28;
+
         public Player Player { get { return player; } }
+        // FIX CS0108: Add 'new' keyword
+        public new string Name => this.Text; // Implement Name property
 
         public Flame(frmMain mainMenuForm)
         {
@@ -54,8 +59,9 @@ namespace Main.Map
             InitializeWallsAndItems(); // Đổi tên
 
             PointF startPos = GetPlayerSpawnPoint();
-            player = new Player(startPos.X, startPos.Y, 28);
-            player.SetUpAnimations();
+            // Sử dụng kích thước cố định
+            player = new Player(startPos.X, startPos.Y, PLAYER_HITBOX_SIZE);
+            player.SetUpAnimations(); // Gọi sau khi tạo player
 
             monsters.Add(new Monster(MonsterType.Flame, GetRandomFloorPosition()));
             boss = new Boss(MonsterType.Flame, GetRandomFloorPosition(true));
@@ -159,21 +165,50 @@ namespace Main.Map
             return validTiles[rand.Next(validTiles.Count)];
         }
 
-        private PointF GetAllowedMovement(RectangleF bounds, PointF moveVector)
+        // Sửa hàm GetAllowedMovement
+        private PointF GetAllowedMovement(RectangleF currentBounds, PointF nextPosition)
         {
-            float dx = moveVector.X;
-            float dy = moveVector.Y;
-            RectangleF nextXBounds = bounds;
-            nextXBounds.X += dx;
-            RectangleF nextYBounds = bounds;
-            nextYBounds.Y += dy;
+            float currentX = currentBounds.X;
+            float currentY = currentBounds.Y;
+            float nextX = nextPosition.X;
+            float nextY = nextPosition.Y;
+            float dx = nextX - currentX;
+            float dy = nextY - currentY;
 
+            RectangleF nextXBounds = currentBounds;
+            nextXBounds.X = nextX;
+
+            // FIX CS0219: Remove unused collisionX
+            // bool collisionX = false;
             foreach (var wall in wallBounds)
             {
-                if (nextXBounds.IntersectsWith(wall)) dx = 0;
-                if (nextYBounds.IntersectsWith(wall)) dy = 0;
+                if (nextXBounds.IntersectsWith(wall))
+                {
+                    // collisionX = true;
+                    if (dx > 0) nextX = wall.Left - currentBounds.Width;
+                    else if (dx < 0) nextX = wall.Right;
+                    break;
+                }
             }
-            return new PointF(bounds.X + dx, bounds.Y + dy);
+
+            RectangleF nextYBounds = currentBounds;
+            nextYBounds.X = nextX;
+            nextYBounds.Y = nextY;
+
+            // FIX CS0219: Remove unused collisionY
+            // bool collisionY = false;
+            foreach (var wall in wallBounds)
+            {
+                if (nextYBounds.IntersectsWith(wall))
+                {
+                    // collisionY = true;
+                    if (dy > 0) nextY = wall.Top - currentBounds.Height;
+                    else if (dy < 0) nextY = wall.Bottom;
+                    break;
+                }
+            }
+
+            return new PointF(nextX, nextY);
         }
         #endregion
 
@@ -188,18 +223,21 @@ namespace Main.Map
 
             player.Update();
             PointF playerMove = player.CalculateMovementVector(player.Position);
-            player.Position = GetAllowedMovement(player.BoundingBox, playerMove);
+            PointF nextPlayerPos = new PointF(player.X + playerMove.X, player.Y + playerMove.Y);
+            player.Position = GetAllowedMovement(player.BoundingBox, nextPlayerPos);
 
             foreach (var monster in monsters)
             {
                 monster.Update();
                 PointF monsterMove = monster.CalculateMovementVector(player.Position);
-                monster.Position = GetAllowedMovement(monster.BoundingBox, monsterMove);
+                PointF nextMonsterPos = new PointF(monster.X + monsterMove.X, monster.Y + monsterMove.Y);
+                monster.Position = GetAllowedMovement(monster.BoundingBox, nextMonsterPos);
                 // TODO: Xử lý quái tấn công Player
             }
             boss.Update();
             PointF bossMove = boss.CalculateMovementVector(player.Position);
-            boss.Position = GetAllowedMovement(boss.BoundingBox, bossMove);
+            PointF nextBossPos = new PointF(boss.X + bossMove.X, boss.Y + bossMove.Y);
+            boss.Position = GetAllowedMovement(boss.BoundingBox, nextBossPos);
 
             // --- THÊM MỚI: Xử lý nhặt vật phẩm ---
             for (int i = itemsOnMap.Count - 1; i >= 0; i--)
@@ -216,7 +254,7 @@ namespace Main.Map
             {
                 if (player.BoundingBox.IntersectsWith(ground))
                 {
-                    // (Logic sụt lún)
+                    // (Logic sụt lún - Có thể thêm ở đây nếu cần)
                 }
             }
 
@@ -232,6 +270,8 @@ namespace Main.Map
         // Timer đổ mồ hôi (ĐÃ CẬP NHẬT)
         private void timerSweat_Tick(object sender, EventArgs e)
         {
+            if (_isGamePaused || player == null) return; // Thêm kiểm tra null
+
             // Nếu không có buff giải nhiệt
             if (!player.ActiveBuffs.ContainsKey(BuffType.Cooling))
             {
@@ -249,6 +289,7 @@ namespace Main.Map
         {
             base.OnPaint(e);
             Graphics g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; // Thêm
             g.Clear(Color.DarkRed);
 
             // --- THAY ĐỔI: Vẽ Sàn bằng Họa tiết ---
@@ -295,7 +336,7 @@ namespace Main.Map
             boss.Draw(g);
         }
 
-        // ... (Các hàm xử lý phím và IGameMap giữ nguyên như Water.cs) ...
+        // ... (Các hàm xử lý phím và IGameMap giữ nguyên như Water.cs đã sửa) ...
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
             if (keyData == Keys.Escape)
@@ -304,15 +345,18 @@ namespace Main.Map
                 return true;
             }
             if (_isGamePaused) return base.ProcessCmdKey(ref msg, keyData);
+
             switch (keyData)
             {
+                // Di chuyển
                 case Keys.A: player.MoveLeft = true; return true;
                 case Keys.D: player.MoveRight = true; return true;
                 case Keys.W: player.MoveUp = true; return true;
                 case Keys.S: player.MoveDown = true; return true;
-                case Keys.ShiftKey: player.Dash(); return true;
-                case Keys.Q: player.Attack(); return true;
-                case Keys.E: player.Block(true); return true;
+                // Hành động
+                case Keys.ShiftKey: player.AttemptDashInput = true; return true;
+                case Keys.Space: player.AttemptAttackInput = true; return true;
+                case Keys.ControlKey: player.AttemptRun = true; return true; // Chạy
             }
             return base.ProcessCmdKey(ref msg, keyData);
         }
@@ -322,12 +366,13 @@ namespace Main.Map
             base.OnKeyUp(e);
             switch (e.KeyCode)
             {
+                // Di chuyển
                 case Keys.A: player.MoveLeft = false; break;
                 case Keys.D: player.MoveRight = false; break;
                 case Keys.W: player.MoveUp = false; break;
                 case Keys.S: player.MoveDown = false; break;
-                case Keys.ShiftKey: player.AttemptDash = false; break;
-                case Keys.E: player.Block(false); break;
+                // Hành động
+                case Keys.ControlKey: player.AttemptRun = false; break; // Ngừng chạy
             }
         }
         private void Flame_Load(object sender, EventArgs e)
@@ -336,6 +381,7 @@ namespace Main.Map
         }
         public GameState GetCurrentGameState()
         {
+            if (player == null) return null;
             return new GameState
             {
                 MapName = this.Name,
@@ -348,31 +394,44 @@ namespace Main.Map
         }
         public void LoadGameState(GameState state)
         {
+            if (player == null) { MessageBox.Show("Lỗi: Player chưa khởi tạo."); this.Close(); return; }
+            if (state == null) { MessageBox.Show("Lỗi: Save data không hợp lệ."); return; }
+
             if (state.MapName != this.Name)
             {
                 MessageBox.Show($"Lỗi: Không thể tải save của map '{state.MapName}' lên map '{this.Name}'.");
+                this.Close();
                 return;
             }
             player.Position = new PointF(state.PlayerX, state.PlayerY);
             player.CurrentHealth = state.PlayerHealth;
             player.CurrentStamina = state.PlayerStamina;
-            if (state.Inventory != null) player.Inventory.Clear();
-            foreach (var item in state.Inventory) { player.AddItem(item.Key, item.Value); }
+            if (state.Inventory != null)
+            {
+                player.Inventory.Clear();
+                foreach (var item in state.Inventory) { player.AddItem(item.Key, item.Value); }
+            }
             MessageBox.Show("Tải game thành công!");
             ResumeGame();
         }
         public PointF GetPlayerSpawnPoint()
         {
-            return new PointF(
-               mazeGen.StartGridPosition.X * tileSize,
-               mazeGen.StartGridPosition.Y * tileSize
-           );
+            if (mazeGen != null)
+            {
+                return new PointF(
+                    mazeGen.StartGridPosition.X * tileSize + (tileSize - PLAYER_HITBOX_SIZE) / 2,
+                    mazeGen.StartGridPosition.Y * tileSize + (tileSize - PLAYER_HITBOX_SIZE) / 2
+                );
+            }
+            return new PointF(tileSize, tileSize);
         }
         public void PauseGame()
         {
             _isGamePaused = true;
+            timerGameLoop.Stop();
             if (_pauseMenu == null || _pauseMenu.IsDisposed)
             {
+                if (Player == null) { MessageBox.Show("Lỗi: Player chưa khởi tạo."); _isGamePaused = false; timerGameLoop.Start(); return; }
                 _pauseMenu = new frmMenu(_mainMenuForm, this);
             }
             _pauseMenu.Show(this);
@@ -380,10 +439,12 @@ namespace Main.Map
         public void ResumeGame()
         {
             _isGamePaused = false;
+            timerGameLoop.Start();
             if (_pauseMenu != null && !_pauseMenu.IsDisposed)
             {
                 _pauseMenu.Close();
             }
+            this.Focus();
         }
 
         // --- LỚP PARTICLE (HIỆU ỨNG) ---

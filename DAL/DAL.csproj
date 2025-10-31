@@ -56,10 +56,20 @@
     <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
-    <Folder Include="Models\" />
-  </ItemGroup>
-  <ItemGroup>
+    <Compile Include="Models\Armors.cs" />
+    <Compile Include="Models\ChestLootTables.cs" />
+    <Compile Include="Models\ContextDB.cs" />
+    <Compile Include="Models\LeaderboardAdventure.cs" />
+    <Compile Include="Models\LeaderboardExploration.cs" />
+    <Compile Include="Models\MonsterLootTables.cs" />
+    <Compile Include="Models\Monsters.cs" />
+    <Compile Include="Models\PlayerCharacters.cs" />
+    <Compile Include="Models\PlayerSessionInventory.cs" />
+    <Compile Include="Models\Potions.cs" />
+    <Compile Include="Models\Users.cs" />
+    <Compile Include="Models\Weapons.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

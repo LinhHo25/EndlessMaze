@@ -7,79 +7,101 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using DAL.Models; // <-- THÊM
+using BLL.Services; // <-- THÊM
 
 namespace Main
 {
-    // LỚP NÀY PHẢI ĐỨNG ĐẦU TIÊN TRONG FILE
     public partial class frmLoadPlay : System.Windows.Forms.Form
     {
         private frmMain _mainForm;
 
-        // Constructor mới nhận tham chiếu đến frmMain
-        public frmLoadPlay(frmMain mainForm)
+        // --- SỬA: Đổi User thành Users (số nhiều) ---
+        private readonly Users _user;
+        private readonly PlayerCharacterService _characterService;
+
+        // --- THÊM: Property để form cha đọc ---
+        public PlayerCharacters SelectedCharacter { get; private set; }
+
+        // --- SỬA: Đổi User thành Users (số nhiều) ---
+        public frmLoadPlay(frmMain mainForm, Users user)
         {
             InitializeComponent();
             _mainForm = mainForm;
-            this.Text = "Danh sách lượt chơi đã lưu";
-
-            // Tải dữ liệu khi form khởi tạo
-            LoadSavedGames();
+            _user = user; // Lưu User
+            _characterService = new PlayerCharacterService(); // Khởi tạo BLL
+            this.Text = "Chọn Nhân Vật";
         }
 
-        // Constructor cũ
+        // Constructor cũ (giữ lại cho Designer)
         public frmLoadPlay()
         {
             InitializeComponent();
-            LoadSavedGames();
+            // Khởi tạo BLL nếu cần
+            _characterService = new PlayerCharacterService();
         }
 
         // Sự kiện Load Form
         private void frmLoadPlay_Load(object sender, EventArgs e)
         {
-            // Đảm bảo ListView có các cột nếu Designer không tự làm
+            // (Xóa code cũ trong Designer.cs nếu có)
             if (lvSavedGames.Columns.Count == 0)
             {
                 lvSavedGames.View = View.Details;
                 lvSavedGames.Columns.Add("ID", 50, HorizontalAlignment.Left);
-                lvSavedGames.Columns.Add("Tên Lượt Chơi", 200, HorizontalAlignment.Left);
-                lvSavedGames.Columns.Add("Thời gian Lưu", 150, HorizontalAlignment.Left);
-                lvSavedGames.Columns.Add("Tiến độ", 250, HorizontalAlignment.Left);
+                lvSavedGames.Columns.Add("Tên Nhân Vật", 350, HorizontalAlignment.Left);
+                lvSavedGames.Columns.Add("Chỉ Số (HP/ATK/DEF)", 450, HorizontalAlignment.Left);
                 lvSavedGames.FullRowSelect = true;
                 lvSavedGames.GridLines = true;
             }
+
+            // Tải danh sách nhân vật
+            LoadCharacters();
         }
 
-        // Hàm giả lập việc tải dữ liệu từ database (Có chú thích)
-        private void LoadSavedGames()
+        // --- SỬA: Tải nhân vật từ BLL thay vì dữ liệu giả ---
+        private void LoadCharacters()
         {
-            // Sử dụng lvSavedGames đã được định nghĩa trong Designer
+            // Kiểm tra an toàn
+            if (_user == null)
+            {
+                MessageBox.Show("Lỗi: Không tìm thấy thông tin người dùng.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                this.Close();
+                return;
+            }
+
             lvSavedGames.Items.Clear();
 
-            List<SavedGame> savedGames = new List<SavedGame>();
-
-            // ===================================================================
-            // CHÚ THÍCH DATABASE: PHẦN CẦN THAY THẾ KHI CÓ KẾT NỐI DB THẬT
-            // 1. KẾT NỐI DB
-            // 2. TRUY VẤN VÀ LẤY TẤT CẢ LƯỢT CHƠI ĐÃ LƯU CỦA TÀI KHOẢN ĐANG ĐĂNG NHẬP
-            //    (Sử dụng User ID đã lưu sau khi đăng nhập thành công)
-            // 3. ĐỌC DỮ LIỆU và ĐƯA VÀO LIST savedGames
-            // ===================================================================
-
-            // DỮ LIỆU GIẢ ĐỊNH (MOCK DATA) ĐỂ DEMO GIAO DIỆN
-            savedGames.Add(new SavedGame { SaveId = 1, Title = "Thử thách Labyrinth: Tầng 5", SavedTime = DateTime.Now.AddDays(-1), ProgressInfo = "Vị trí: (10, 15), Máu: 80/100, Vật phẩm: 3" });
-            savedGames.Add(new SavedGame { SaveId = 2, Title = "Phòng thủ Pháo đài: Wave 12", SavedTime = DateTime.Now.AddHours(-5), ProgressInfo = "Vị trí: (5, 8), Máu: 100/100, Vật phẩm: 0" });
-            savedGames.Add(new SavedGame { SaveId = 3, Title = "Khám phá Rừng cổ: Ngày thứ 7", SavedTime = DateTime.Now.AddDays(-3), ProgressInfo = "Vị trí: (30, 2), Máu: 50/100, Vật phẩm: 10" });
-
-
-            // Đổ dữ liệu vào ListView
-            foreach (var game in savedGames)
+            try
             {
-                ListViewItem item = new ListViewItem(game.SaveId.ToString());
-                item.SubItems.Add(game.Title);
-                item.SubItems.Add(game.SavedTime.ToString("dd/MM/yyyy HH:mm"));
-                item.SubItems.Add(game.ProgressInfo);
-                item.Tag = game; // Lưu toàn bộ đối tượng vào Tag để dễ dàng lấy ra khi double click
-                lvSavedGames.Items.Add(item);
+                // Gọi BLL
+                List<PlayerCharacters> characters = _characterService.GetCharactersByUserId(_user.UserID);
+
+                if (characters.Count == 0)
+                {
+                    ListViewItem item = new ListViewItem("Không có nhân vật nào.");
+                    item.SubItems.Add("Vui lòng quay lại và chọn 'Chơi Mới'.");
+                    lvSavedGames.Items.Add(item);
+                    return;
+                }
+
+                // Đổ dữ liệu vào ListView
+                foreach (var character in characters)
+                {
+                    ListViewItem item = new ListViewItem(character.CharacterID.ToString());
+                    item.SubItems.Add(character.CharacterName);
+
+                    // Hiển thị chỉ số cơ bản
+                    string stats = $"HP: {character.BaseHealth} / ATK: {character.BaseAttack} / DEF: {character.BaseDefense}";
+                    item.SubItems.Add(stats);
+
+                    item.Tag = character; // Lưu toàn bộ đối tượng vào Tag
+                    lvSavedGames.Items.Add(item);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi tải danh sách nhân vật: " + ex.Message, "Lỗi Database", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -89,15 +111,15 @@ namespace Main
             ListView listViewSaves = (ListView)sender;
             if (listViewSaves.SelectedItems.Count > 0)
             {
-                // Lấy đối tượng SavedGame từ Tag của Item đã chọn
-                SavedGame selectedGame = listViewSaves.SelectedItems[0].Tag as SavedGame;
+                // Lấy đối tượng PlayerCharacters từ Tag
+                PlayerCharacters selectedChar = listViewSaves.SelectedItems[0].Tag as PlayerCharacters;
 
-                if (selectedGame != null)
+                if (selectedChar != null)
                 {
-                    MessageBox.Show($"Đang tải lượt chơi: {selectedGame.Title} (ID: {selectedGame.SaveId})...", "Tải Game", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    this.Hide();
-
-                    // NẾU TẢI THÀNH CÔNG, CHUYỂN ĐẾN FORM GAME CHÍNH
+                    // Lưu nhân vật đã chọn và đóng form
+                    this.SelectedCharacter = selectedChar;
+                    this.DialogResult = DialogResult.OK; // Báo hiệu chọn thành công
+                    this.Close();
                 }
             }
         }
@@ -105,29 +127,19 @@ namespace Main
         // Sự kiện click cho nút "QUAY LẠI"
         private void btnBack_Click(object sender, EventArgs e)
         {
+            this.DialogResult = DialogResult.Cancel; // Báo hiệu hủy
             this.Close(); // Đóng form hiện tại
         }
 
         // Quay về frmMain khi form bị đóng
         private void frmLoadPlay_FormClosed(object sender, FormClosedEventArgs e)
         {
-            // Khi frmLoadPlay đóng, form cha (frmPlay) đã bị ẩn. 
-            // Ta cần hiển thị lại frmPlay (hoặc frmMain nếu frmPlay cũng đóng)
-
-            // Hiện tại, ta chỉ đảm bảo frmMain hiển thị lại nếu nó đang bị ẩn.
-            if (_mainForm != null && _mainForm.Visible == false)
-            {
-                _mainForm.Show();
-            }
+            // Không cần hiển thị lại _mainForm ở đây,
+            // vì frmPlay (form gọi nó) vẫn đang mở
         }
     }
 
-    // LỚP HỖ TRỢ ĐÃ ĐƯỢC DI CHUYỂN XUỐNG DƯỚI LỚP FORM
-    public class SavedGame
-    {
-        public int SaveId { get; set; }
-        public string Title { get; set; }
-        public DateTime SavedTime { get; set; }
-        public string ProgressInfo { get; set; }
-    }
+    // XÓA LỚP GIẢ LẬP SavedGame
+    // public class SavedGame { ... }
 }
+

@@ -2,8 +2,11 @@
 using System.Drawing;
 using System.Drawing.Text;
 using System.Windows.Forms;
+using DAL.Models; // <-- THÊM
+using BLL.Services; // <-- THÊM
+using static BLL.Services.GameSessionService; // <-- THÊM
 
-namespace GUI.FormAll // SỬA LỖI 1: Đổi namespace từ Main thành GUI.FormAll
+namespace Main // <-- SỬA: Đổi namespace
 {
     // Form này sẽ hiển thị chỉ số nhân vật
     public partial class frmStatus : Form
@@ -11,7 +14,8 @@ namespace GUI.FormAll // SỬA LỖI 1: Đổi namespace từ Main thành GUI.Fo
         private PrivateFontCollection pfc = new PrivateFontCollection();
         private Font pixelFontSmall;
 
-        public frmStatus()
+        // --- SỬA: Constructor để nhận dữ liệu thật ---
+        public frmStatus(PlayerCharacters character, CalculatedStats stats, int currentHealth)
         {
             InitializeComponent();
             this.KeyPreview = true;
@@ -37,21 +41,62 @@ namespace GUI.FormAll // SỬA LỖI 1: Đổi namespace từ Main thành GUI.Fo
 
             // Style cho các label chỉ số
             ApplyLabelStyles(lblHP);
-            ApplyLabelStyles(lblMP); // SỬA LỖI 2: Các control này giờ đã tồn tại
+            ApplyLabelStyles(lblMP);
             ApplyLabelStyles(lblStrength);
             ApplyLabelStyles(lblDefense);
-            ApplyLabelStyles(lblSpeed); // SỬA LỖI 2: Các control này giờ đã tồn tại
+            ApplyLabelStyles(lblSpeed);
 
             // Style cho nút đóng
             ApplyCloseButtonStyles(btnClose);
 
-            // TODO: Tải chỉ số thực tế của Player vào các Label
+            // --- Tải chỉ số thực tế của Player vào các Label ---
+            if (character != null && stats != null)
+            {
+                lblHP.Text = $"HP: {currentHealth} / {stats.TotalHealth}";
+                lblMP.Text = $"Thể Lực (Stamina): ??? / {character.BaseStamina}"; // Giả sử chưa có Thể Lực hiện tại
+                lblStrength.Text = $"Sức mạnh: {stats.TotalAttack}";
+                lblDefense.Text = $"Phòng thủ: {stats.TotalDefense}";
+                lblSpeed.Text = "Tốc độ: (chưa định nghĩa)"; // CalculatedStats chưa có Tốc độ
+            }
+            else
+            {
+                lblTitle.Text = "LỖI TẢI DỮ LIỆU";
+            }
+        }
+
+        // --- THÊM: Constructor mặc định (cho Designer) ---
+        public frmStatus()
+        {
+            InitializeComponent();
+            this.KeyPreview = true;
+            ApplyStylesAndLoadFakeData();
+        }
+
+        // Hàm style cho constructor mặc định
+        private void ApplyStylesAndLoadFakeData()
+        {
+            try { pixelFontSmall = new Font("Consolas", 10F, FontStyle.Bold); }
+            catch { pixelFontSmall = new Font("Arial", 10F, FontStyle.Bold); }
+
+            this.FormBorderStyle = FormBorderStyle.None;
+            this.StartPosition = FormStartPosition.CenterParent;
+            this.BackColor = Color.FromArgb(245, 222, 179);
+            lblTitle.Font = new Font(pixelFontSmall.FontFamily, 18F, FontStyle.Bold);
+            lblTitle.ForeColor = Color.FromArgb(40, 40, 40);
+            ApplyLabelStyles(lblHP);
+            ApplyLabelStyles(lblMP);
+            ApplyLabelStyles(lblStrength);
+            ApplyLabelStyles(lblDefense);
+            ApplyLabelStyles(lblSpeed);
+            ApplyCloseButtonStyles(btnClose);
+
             lblHP.Text = "HP: 100 / 100";
-            lblMP.Text = "MP: 50 / 50"; // SỬA LỖI 2: Các control này giờ đã tồn tại
+            lblMP.Text = "MP: 50 / 50";
             lblStrength.Text = "Sức mạnh: 10";
             lblDefense.Text = "Phòng thủ: 5";
-            lblSpeed.Text = "Tốc độ: 8"; // SỬA LỖI 2: Các control này giờ đã tồn tại
+            lblSpeed.Text = "Tốc độ: 8";
         }
+
 
         private void ApplyLabelStyles(Label lbl)
         {

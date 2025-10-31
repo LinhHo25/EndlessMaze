@@ -33,7 +33,8 @@
             this.colID = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.colTitle = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.colTime = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.colProgress = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            // --- SỬA: Xóa colProgress ---
+            // this.colProgress = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.btnBack = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
             this.SuspendLayout();
@@ -47,7 +48,8 @@
             this.lblTitle.Padding = new System.Windows.Forms.Padding(0, 20, 0, 10);
             this.lblTitle.Size = new System.Drawing.Size(900, 70);
             this.lblTitle.TabIndex = 0;
-            this.lblTitle.Text = "DANH SÁCH LƯỢT CHƠI ĐÃ LƯU";
+            // --- SỬA: Đổi tiêu đề ---
+            this.lblTitle.Text = "CHỌN NHÂN VẬT";
             this.lblTitle.TextAlign = System.Drawing.ContentAlignment.TopCenter;
             // 
             // lvSavedGames
@@ -55,8 +57,7 @@
             this.lvSavedGames.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.colID,
             this.colTitle,
-            this.colTime,
-            this.colProgress});
+            this.colTime}); // <-- SỬA: Xóa colProgress
             this.lvSavedGames.FullRowSelect = true;
             this.lvSavedGames.GridLines = true;
             this.lvSavedGames.HideSelection = false;
@@ -75,18 +76,21 @@
             // 
             // colTitle
             // 
-            this.colTitle.Text = "Tiêu đề";
-            this.colTitle.Width = 250;
+            // --- SỬA: Đổi tên cột ---
+            this.colTitle.Text = "Tên Nhân Vật";
+            this.colTitle.Width = 350; // Tăng độ rộng
             // 
             // colTime
             // 
-            this.colTime.Text = "Thời gian chơi";
-            this.colTime.Width = 150;
+            // --- SỬA: Đổi tên cột ---
+            this.colTime.Text = "Chỉ Số (HP/ATK/DEF)";
+            this.colTime.Width = 450; // Tăng độ rộng
             // 
             // colProgress
             // 
-            this.colProgress.Text = "Số map đã qua";
-            this.colProgress.Width = 400;
+            // --- SỬA: Xóa cột này ---
+            // this.colProgress.Text = "Số map đã qua";
+            // this.colProgress.Width = 400;
             // 
             // btnBack
             // 
@@ -108,6 +112,7 @@
             this.label1.Size = new System.Drawing.Size(99, 31);
             this.label1.TabIndex = 3;
             this.label1.Text = "Bỏ qua";
+            this.label1.Visible = false; // --- SỬA: Ẩn label thừa ---
             // 
             // frmLoadPlay
             // 
@@ -122,6 +127,7 @@
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Tải Lượt Chơi";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.frmLoadPlay_FormClosed);
+            this.Load += new System.EventHandler(this.frmLoadPlay_Load); // <-- THÊM: Đảm bảo gán sự kiện Load
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -134,7 +140,7 @@
         private System.Windows.Forms.ColumnHeader colID;
         private System.Windows.Forms.ColumnHeader colTitle;
         private System.Windows.Forms.ColumnHeader colTime;
-        private System.Windows.Forms.ColumnHeader colProgress;
+        // --- SỬA: Xóa colProgress ---
         private System.Windows.Forms.Button btnBack;
         private System.Windows.Forms.Label label1;
     }

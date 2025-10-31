@@ -1,9 +1,11 @@
-﻿using System;
+﻿using BLL.Services; // <-- Sử dụng BLL
+using DAL.Models; // <-- Sử dụng Models
+using System;
 using System.Drawing;
 using System.Drawing.Text;
 using System.Windows.Forms;
 
-namespace GUI.FormAll // SỬA LỖI 1: Đổi namespace từ Main thành GUI.FormAll
+namespace Main // <-- SỬA: Đổi namespace về 'Main' cho nhất quán
 {
     // Form này sẽ hiển thị trang bị của nhân vật
     public partial class frmEquipment : Form
@@ -11,14 +13,29 @@ namespace GUI.FormAll // SỬA LỖI 1: Đổi namespace từ Main thành GUI.Fo
         private PrivateFontCollection pfc = new PrivateFontCollection();
         private Font pixelFontSmall;
 
-        public frmEquipment()
+        // --- Dữ liệu nhân vật và BLL Service ---
+        private readonly PlayerCharacters _character;
+        private readonly PlayerSessionInventory _inventory;
+        private readonly GameDefinitionService _definitionService; // Dùng để lấy tên item từ ID
+
+        // --- SỬA: Constructor để nhận dữ liệu game ---
+        public frmEquipment(PlayerCharacters character, PlayerSessionInventory inventory)
         {
             InitializeComponent();
             this.KeyPreview = true;
 
+            // --- Lưu trữ dữ liệu và BLL ---
+            _character = character;
+            _inventory = inventory;
+            _definitionService = new GameDefinitionService(); // Khởi tạo BLL
+            // ------------------------------------
+
+
             // --- Tải font pixel ---
             try
             {
+                // (Code tải font custom của bạn ở đây nếu có)
+                // Tạm thời dùng font dự phòng:
                 pixelFontSmall = new Font("Consolas", 10F, FontStyle.Bold);
             }
             catch
@@ -35,27 +52,66 @@ namespace GUI.FormAll // SỬA LỖI 1: Đổi namespace từ Main thành GUI.Fo
             lblTitle.Font = new Font(pixelFontSmall.FontFamily, 18F, FontStyle.Bold);
             lblTitle.ForeColor = Color.FromArgb(40, 40, 40);
 
-            // Style cho các label
+            // Style cho các label (BỎ QUA HELMET VÀ ACCESSORY)
             ApplyLabelStyles(lblWeapon);
             ApplyLabelStyles(lblArmor);
-            ApplyLabelStyles(lblHelmet); // SỬA LỖI 2: Các control này giờ đã tồn tại (sau khi sửa file Designer)
-            ApplyLabelStyles(lblAccessory); // SỬA LỖI 2: Các control này giờ đã tồn tại
 
             // Style cho các ô trang bị (PictureBox)
             ApplySlotStyles(picWeapon);
             ApplySlotStyles(picArmor);
-            ApplySlotStyles(picHelmet); // SỬA LỖI 2: Các control này giờ đã tồn tại
-            ApplySlotStyles(picAccessory); // SỬA LỖI 2: Các control này giờ đã tồn tại
 
             // Style cho nút đóng
             ApplyCloseButtonStyles(btnClose);
 
-            // TODO: Tải trang bị thực tế vào các PictureBox và cập nhật Label
-            lblWeapon.Text = "Vũ khí: (Trống)";
-            lblArmor.Text = "Áo giáp: (Trống)";
-            lblHelmet.Text = "Mũ: (Trống)"; // SỬA LỖI 2: Các control này giờ đã tồn tại
-            lblAccessory.Text = "Phụ kiện: (Trống)"; // SỬA LỖI 2: Các control này giờ đã tồn tại
+            // --- Tải trang bị thực tế vào các Label ---
+            LoadEquipmentData();
+            // ---------------------------------------------
         }
+
+        // --- HÀM MỚI: Tải dữ liệu trang bị ---
+        private void LoadEquipmentData()
+        {
+            try
+            {
+                // Kiểm tra null
+                if (_character == null || _inventory == null)
+                {
+                    lblWeapon.Text = "Vũ khí: (Lỗi)";
+                    lblArmor.Text = "Áo giáp: (Lỗi)";
+                    return;
+                }
+
+                // 1. Tải Vũ khí (Weapon)
+                var weapon = _definitionService.GetWeaponById(_inventory.EquippedWeaponID);
+                if (weapon != null)
+                {
+                    lblWeapon.Text = $"Vũ khí: {weapon.WeaponName} (Rank {weapon.WeaponRank})";
+                    // TODO: Gán hình ảnh cho picWeapon (nếu có)
+                    // picWeapon.Image = ... 
+                }
+                else
+                {
+                    lblWeapon.Text = "Vũ khí: (Trống)";
+                }
+
+                // 2. Tải Áo giáp (Armor)
+                var armor = _definitionService.GetArmorById(_inventory.EquippedArmorID);
+                if (armor != null)
+                {
+                    lblArmor.Text = $"Áo giáp: {armor.ArmorName} (Rank {armor.ArmorRank})";
+                    // TODO: Gán hình ảnh cho picArmor (nếu có)
+                }
+                else
+                {
+                    lblArmor.Text = "Áo giáp: (Trống)";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi tải trang bị: " + ex.Message);
+            }
+        }
+
 
         private void ApplyLabelStyles(Label lbl)
         {
@@ -92,5 +148,17 @@ namespace GUI.FormAll // SỬA LỖI 1: Đổi namespace từ Main thành GUI.Fo
                 this.Close();
             }
         }
+
+        // --- Constructor mặc định (để Designer không lỗi) ---
+        public frmEquipment()
+        {
+            InitializeComponent();
+            this.KeyPreview = true;
+
+            // Tải dữ liệu giả
+            lblWeapon.Text = "Vũ khí: (Trống)";
+            lblArmor.Text = "Áo giáp: (Trống)";
+        }
+        // -----------------------------------------------------------------
     }
 }

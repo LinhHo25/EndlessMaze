@@ -1,5 +1,6 @@
 ﻿namespace Main
 {
+    // --- SỬA LỖI: Đổi tên class từ frmMenu thành frmPlay ---
     partial class frmPlay
     {
         /// <summary>
@@ -39,7 +40,7 @@
             // 
             this.BtnLoad.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.BtnLoad.Location = new System.Drawing.Point(67, 197);
-            this.BtnLoad.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.BtnLoad.Margin = new System.Windows.Forms.Padding(4);
             this.BtnLoad.Name = "BtnLoad";
             this.BtnLoad.Size = new System.Drawing.Size(373, 62);
             this.BtnLoad.TabIndex = 2;
@@ -51,7 +52,7 @@
             // 
             this.btnBack.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnBack.Location = new System.Drawing.Point(67, 258);
-            this.btnBack.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.btnBack.Margin = new System.Windows.Forms.Padding(4);
             this.btnBack.Name = "btnBack";
             this.btnBack.Size = new System.Drawing.Size(373, 62);
             this.btnBack.TabIndex = 3;
@@ -76,7 +77,7 @@
             this.btnNewGame.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnNewGame.ForeColor = System.Drawing.Color.White;
             this.btnNewGame.Location = new System.Drawing.Point(67, 74);
-            this.btnNewGame.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.btnNewGame.Margin = new System.Windows.Forms.Padding(4);
             this.btnNewGame.Name = "btnNewGame";
             this.btnNewGame.Size = new System.Drawing.Size(373, 62);
             this.btnNewGame.TabIndex = 0;
@@ -88,7 +89,7 @@
             // 
             this.btnContinue.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnContinue.Location = new System.Drawing.Point(67, 135);
-            this.btnContinue.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.btnContinue.Margin = new System.Windows.Forms.Padding(4);
             this.btnContinue.Name = "btnContinue";
             this.btnContinue.Size = new System.Drawing.Size(373, 62);
             this.btnContinue.TabIndex = 1;
@@ -107,7 +108,7 @@
             this.Controls.Add(this.btnBack);
             this.Controls.Add(this.BtnLoad);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
-            this.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.Margin = new System.Windows.Forms.Padding(4);
             this.MaximizeBox = false;
             this.Name = "frmPlay";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
@@ -129,4 +130,3 @@
         private System.Windows.Forms.Button btnContinue;
     }
 }
-

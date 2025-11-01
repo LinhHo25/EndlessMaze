@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Windows.Forms;
-
 using System.Linq;
-using System.Collections.Generic; // <-- THÊM DÒNG NÀY
+using System.Collections.Generic;
+using DAL.Models;
+using BLL.Services;
+using System.Drawing;
+using GUI.FormsAll; // <-- MỚI: Thêm namespace của frmMainGame
 
 namespace Main
 {
@@ -11,70 +14,219 @@ namespace Main
         private frmMain _mainForm;
         private Random rand = new Random();
 
-        public frmPlay(frmMain mainForm)
+        // --- THÊM: Dữ liệu User và BLL ---
+        private readonly User _currentUser;
+        private readonly PlayerCharacterService _characterService;
+
+        // --- SỬA: Constructor nhận Users ---
+        public frmPlay(frmMain mainForm, User user)
         {
             InitializeComponent();
             _mainForm = mainForm;
-            this.Text = "Chọn Chế Độ Chơi";
+            _currentUser = user; // Lưu user
+            _characterService = new PlayerCharacterService(); // Khởi tạo BLL
+            this.Text = $"Chọn Chế Độ Chơi (User: {_currentUser.Username})";
+
+            // --- MỚI: Ẩn mainForm khi form này mở ---
+            if (_mainForm != null)
+            {
+                _mainForm.Hide();
+            }
         }
 
-        public frmPlay()
+        public frmPlay(frmMain mainForm)
         {
             InitializeComponent();
+            // (Constructor này chỉ dùng cho Designer)
+            _characterService = new PlayerCharacterService();
+            _mainForm = mainForm;
         }
 
         // Nút CHƠI MỚI
         private void btnNewGame_Click(object sender, EventArgs e)
         {
-            
+            if (_currentUser == null) return;
+
+            // Hỏi tên nhân vật
+            string charName = InputBox.Show("Tạo Nhân Vật Mới", "Nhập tên nhân vật của bạn:", "Nhà Thám Hiểm");
+
+            if (!string.IsNullOrWhiteSpace(charName))
+            {
+                try
+                {
+                    // Gọi BLL tạo nhân vật
+                    bool success = _characterService.CreateCharacter(_currentUser.UserID, charName);
+                    if (success)
+                    {
+                        MessageBox.Show($"Tạo nhân vật '{charName}' thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                        // Tự động tải nhân vật vừa tạo
+                        var newChar = _characterService.GetCharactersByUserId(_currentUser.UserID)
+                                                      .OrderByDescending(c => c.CharacterID) // Lấy nhân vật mới nhất
+                                                      .FirstOrDefault(c => c.CharacterName == charName);
+                        if (newChar != null)
+                        {
+                            // Bắt đầu game mới ở Map 1
+                            StartGame(newChar.CharacterID, 1);
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Lỗi khi tạo nhân vật. (Có thể tên đã tồn tại hoặc lỗi DB)", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Lỗi nghiêm trọng khi tạo nhân vật: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
         }
 
-        // Nút CHƠI TIẾP (ĐÃ CẬP NHẬT LOGIC)
+        // Nút CHƠI TIẾP (Tải nhân vật đầu tiên)
         private void btnContinue_Click(object sender, EventArgs e)
         {
-            
+            if (_currentUser == null) return;
+            try
+            {
+                // Tải nhân vật đầu tiên của user
+                var firstChar = _characterService.GetCharactersByUserId(_currentUser.UserID).FirstOrDefault();
+                if (firstChar != null)
+                {
+                    // Tạm thời, chúng ta giả định bắt đầu từ Map 1 nếu 'Continue'
+                    int lastMapLevel = 1; // (Nên thay bằng logic đọc file save)
+                    StartGame(firstChar.CharacterID, lastMapLevel);
+                }
+                else
+                {
+                    MessageBox.Show("Bạn chưa có nhân vật nào. Vui lòng chọn 'Chơi Mới'.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi tải nhân vật: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
-        // Nút TẢI LƯỢT CHƠI (mở form frmLoadPlay cũ)
+        // Nút TẢI LƯỢT CHƠI (Mở form chọn nhân vật)
         private void BtnLoad_Click(object sender, EventArgs e)
         {
-            
+            if (_currentUser == null) return;
+
+            // SỬA: Đảm bảo bạn có frmLoadPlay trong namespace 'Main' hoặc 'GUI.FormsAll'
+            frmLoadPlay loadForm = new frmLoadPlay(_mainForm, _currentUser);
+            var result = loadForm.ShowDialog();
+
+            if (result == DialogResult.OK && loadForm.SelectedCharacter != null)
+            {
+                // Tạm thời, chúng ta giả định bắt đầu từ Map 1
+                int mapLevel = 1;
+                StartGame(loadForm.SelectedCharacter.CharacterID, mapLevel);
+            }
         }
 
-        // Hàm chung để khởi chạy map
-        
+        // --- SỬA: Hàm khởi chạy game (nhận thêm mapLevel) ---
+        private void StartGame(int characterId, int mapLevel)
+        {
+            try
+            {
+                var characterDetails = _characterService.GetCharacterDetails(characterId);
+                if (characterDetails == null)
+                {
+                    MessageBox.Show("Không thể tải thông tin chi tiết của nhân vật.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                // --- SỬA: Mở form game chính (frmMainGame) ---
+                // (Giả định frmMainGame nằm trong namespace GUI.FormsAll)
+                frmMainGame mainGame = new frmMainGame(characterDetails, mapLevel);
+                this.Hide(); // Ẩn form chọn chế độ
+                mainGame.ShowDialog(); // Mở form game (chế độ khóa)
+                this.Show(); // Hiện lại form này khi game đóng
+                // --- HẾT PHẦN SỬA ---
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi bắt đầu game: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
 
         // Nút QUAY LẠI MENU
         private void btnBack_Click(object sender, EventArgs e)
         {
-           
+            this.Close();
         }
 
         // Sự kiện khi form bị đóng, hiển thị lại frmMain
         private void frmPlay_FormClosed(object sender, FormClosedEventArgs e)
         {
-            
+            if (_mainForm != null && !_mainForm.IsDisposed)
+            {
+                _mainForm.Show();
+            }
         }
 
-        // Sự kiện khi form này được hiện lại (sau khi map đóng)
+        // (Bỏ trống)
         private void frmPlay_VisibleChanged(object sender, EventArgs e)
         {
-            
         }
-
-
-        // =============================================================
-        // HÀM GIẢ LẬP TRUY VẤN DATABASE (Cần thay thế bằng code thật)
-        // =============================================================
-       
-        
 
         private void frmPlay_Load(object sender, EventArgs e)
         {
-
+            if (_currentUser == null)
+            {
+                MessageBox.Show("Lỗi: Không có thông tin người dùng. Vui lòng đăng nhập lại.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                btnNewGame.Enabled = false;
+                btnContinue.Enabled = false;
+                BtnLoad.Enabled = false;
+                lblTitle.Text = "LỖI: KHÔNG CÓ USER";
+            }
         }
-        // =============================================================
 
+        // --- THÊM: Lớp helper để tạo InputBox ---
+        public static class InputBox
+        {
+            public static string Show(string title, string promptText, string defaultValue = "")
+            {
+                Form form = new Form();
+                Label label = new Label();
+                TextBox textBox = new TextBox();
+                Button buttonOk = new Button();
+                Button buttonCancel = new Button();
+
+                form.Text = title;
+                label.Text = promptText;
+                textBox.Text = defaultValue;
+
+                buttonOk.Text = "OK";
+                buttonCancel.Text = "Cancel";
+                buttonOk.DialogResult = DialogResult.OK;
+                buttonCancel.DialogResult = DialogResult.Cancel;
+
+                label.SetBounds(9, 20, 372, 13);
+                textBox.SetBounds(12, 36, 372, 20);
+                buttonOk.SetBounds(228, 72, 75, 23);
+                buttonCancel.SetBounds(309, 72, 75, 23);
+
+                label.AutoSize = true;
+                textBox.Anchor = textBox.Anchor | AnchorStyles.Right;
+                buttonOk.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+                buttonCancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+
+                form.ClientSize = new Size(396, 107);
+                form.Controls.AddRange(new Control[] { label, textBox, buttonOk, buttonCancel });
+                form.ClientSize = new Size(Math.Max(300, label.Right + 10), form.ClientSize.Height);
+                form.FormBorderStyle = FormBorderStyle.FixedDialog;
+                form.StartPosition = FormStartPosition.CenterScreen;
+                form.MinimizeBox = false;
+                form.MaximizeBox = false;
+                form.AcceptButton = buttonOk;
+                form.CancelButton = buttonCancel;
+
+                DialogResult dialogResult = form.ShowDialog();
+                return dialogResult == DialogResult.OK ? textBox.Text : "";
+            }
+        }
     }
 }
 

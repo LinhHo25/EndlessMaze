@@ -44,12 +44,12 @@
             this.lblTitle.BackColor = System.Drawing.Color.Transparent;
             this.lblTitle.Font = new System.Drawing.Font("Segoe UI", 48F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblTitle.ForeColor = System.Drawing.Color.OrangeRed;
-            this.lblTitle.Location = new System.Drawing.Point(158, 36);
+            this.lblTitle.Location = new System.Drawing.Point(13, 13);
             this.lblTitle.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.lblTitle.Name = "lblTitle";
-            this.lblTitle.Size = new System.Drawing.Size(438, 86);
+            this.lblTitle.Size = new System.Drawing.Size(712, 145);
             this.lblTitle.TabIndex = 0;
-            this.lblTitle.Text = "Endless Maze";
+            this.lblTitle.Text = "ENDLESS MAZE";
             this.lblTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // label1
@@ -73,8 +73,8 @@
             this.btnLogin.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLogin.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnLogin.ForeColor = System.Drawing.Color.White;
-            this.btnLogin.Location = new System.Drawing.Point(39, 170);
-            this.btnLogin.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.btnLogin.Location = new System.Drawing.Point(39, 162);
+            this.btnLogin.Margin = new System.Windows.Forms.Padding(4);
             this.btnLogin.Name = "btnLogin";
             this.btnLogin.Size = new System.Drawing.Size(250, 50);
             this.btnLogin.TabIndex = 1;
@@ -93,7 +93,7 @@
             this.btnLeaderboard.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLeaderboard.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnLeaderboard.ForeColor = System.Drawing.Color.White;
-            this.btnLeaderboard.Location = new System.Drawing.Point(39, 227);
+            this.btnLeaderboard.Location = new System.Drawing.Point(39, 219);
             this.btnLeaderboard.Name = "btnLeaderboard";
             this.btnLeaderboard.Size = new System.Drawing.Size(250, 50);
             this.btnLeaderboard.TabIndex = 3;
@@ -112,7 +112,7 @@
             this.btnExit.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnExit.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnExit.ForeColor = System.Drawing.Color.White;
-            this.btnExit.Location = new System.Drawing.Point(39, 284);
+            this.btnExit.Location = new System.Drawing.Point(39, 276);
             this.btnExit.Name = "btnExit";
             this.btnExit.Size = new System.Drawing.Size(250, 50);
             this.btnExit.TabIndex = 4;
@@ -132,7 +132,7 @@
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(30)))), ((int)(((byte)(30)))));
             this.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("$this.BackgroundImage")));
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.ClientSize = new System.Drawing.Size(738, 443);
+            this.ClientSize = new System.Drawing.Size(738, 427);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.btnExit);
             this.Controls.Add(this.btnLeaderboard);

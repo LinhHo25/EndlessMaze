@@ -5,69 +5,86 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 
-namespace Main // <-- Đã đổi namespace thành 'Main'
+namespace Main
 {
-    // Class này quản lý MỘT bộ hoạt ảnh 4 hướng
     public class AnimationActivity
     {
-        // 1. Lưu trữ ảnh
-        private List<Image> BackImages = new List<Image>();
-        private List<Image> FrontImages = new List<Image>();
-        private List<Image> LeftImages = new List<Image>();
-        private List<Image> RightImages = new List<Image>();
+        private List<string> BackImages = new List<string>();
+        private List<string> FrontImages = new List<string>();
+        private List<string> LeftImages = new List<string>();
+        private List<string> RightImages = new List<string>();
 
-        // 2. Trạng thái hoạt ảnh
         private int steps = 0;
         private int slowDownFrameRate = 0;
-        private int animationSpeed;
 
-        // --- Biến cho hoạt ảnh chạy 1 lần (one-shot) ---
-        public bool IsLooping { get; set; } = true; // Mặc định là lặp lại
-        public bool IsFinished { get; private set; } = false; // Báo khi nào chạy xong
+        public int AnimationSpeed { get; private set; }
+        public string BackDir { get; private set; }
+        public string FrontDir { get; private set; }
+        public string LeftDir { get; private set; }
+        public string RightDir { get; private set; }
 
+        public bool IsLooping { get; set; } = true;
+        public bool IsFinished { get; private set; } = false;
 
         public AnimationActivity(int speed = 10)
         {
-            animationSpeed = speed;
+            AnimationSpeed = speed;
         }
 
-        /// <summary>
-        /// Tải ảnh từ 4 thư mục con (Back, Front, Left, Right)
-        /// </summary>
         public void LoadImages(string backDir, string frontDir, string leftDir, string rightDir)
         {
+            BackDir = backDir;
+            FrontDir = frontDir;
+            LeftDir = leftDir;
+            RightDir = rightDir;
             try
             {
-                // Tải Back
                 if (backDir != null && Directory.Exists(backDir))
                 {
-                    BackImages.AddRange(Directory.GetFiles(backDir, "*.png").OrderBy(f => f).Select(f => Image.FromFile(f)));
+                    BackImages.AddRange(Directory.GetFiles(backDir, "*.png").OrderBy(f => f));
                 }
-                // Tải Front
                 if (frontDir != null && Directory.Exists(frontDir))
                 {
-                    FrontImages.AddRange(Directory.GetFiles(frontDir, "*.png").OrderBy(f => f).Select(f => Image.FromFile(f)));
+                    FrontImages.AddRange(Directory.GetFiles(frontDir, "*.png").OrderBy(f => f));
                 }
-                // Tải Left
                 if (leftDir != null && Directory.Exists(leftDir))
                 {
-                    LeftImages.AddRange(Directory.GetFiles(leftDir, "*.png").OrderBy(f => f).Select(f => Image.FromFile(f)));
+                    LeftImages.AddRange(Directory.GetFiles(leftDir, "*.png").OrderBy(f => f));
                 }
-                // Tải Right
                 if (rightDir != null && Directory.Exists(rightDir))
                 {
-                    RightImages.AddRange(Directory.GetFiles(rightDir, "*.png").OrderBy(f => f).Select(f => Image.FromFile(f)));
+                    RightImages.AddRange(Directory.GetFiles(rightDir, "*.png").OrderBy(f => f));
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi tải ảnh: {ex.Message}");
+                MessageBox.Show($"Lỗi tải đường dẫn ảnh: {ex.Message}");
+            }
+        }
+
+        // --- SỬA LỖI: Hàm mới để tải ảnh an toàn (tránh "Out of Memory") ---
+        private Image LoadImageFromFile(string path)
+        {
+            try
+            {
+                // Đọc file vào mảng byte, sau đó vào MemoryStream.
+                // Cách này không khóa file và GDI+ có thể giải phóng dễ dàng.
+                byte[] imageData = File.ReadAllBytes(path);
+                using (MemoryStream ms = new MemoryStream(imageData))
+                {
+                    return Image.FromStream(ms);
+                }
+            }
+            catch (Exception)
+            {
+                // Nếu file bị lỗi, trả về null
+                return null;
             }
         }
 
         public Image GetNextFrame(string direction)
         {
-            List<Image> animationFrames;
+            List<string> animationFrames;
             switch (direction)
             {
                 case "up": animationFrames = BackImages; break;
@@ -82,23 +99,22 @@ namespace Main // <-- Đã đổi namespace thành 'Main'
                 return null;
             }
 
-            // Logic chạy frame
             if (!IsFinished)
             {
                 slowDownFrameRate++;
-                if (slowDownFrameRate > animationSpeed)
+                if (slowDownFrameRate > AnimationSpeed)
                 {
                     steps++;
                     if (steps >= animationFrames.Count)
                     {
                         if (IsLooping)
                         {
-                            steps = 0; // Lặp lại
+                            steps = 0;
                         }
                         else
                         {
-                            steps = animationFrames.Count - 1; // Dừng ở frame cuối
-                            IsFinished = true; // Báo đã xong
+                            steps = animationFrames.Count - 1;
+                            IsFinished = true;
                         }
                     }
                     slowDownFrameRate = 0;
@@ -107,24 +123,33 @@ namespace Main // <-- Đã đổi namespace thành 'Main'
 
             if (steps >= animationFrames.Count)
             {
-                steps = animationFrames.Count - 1; // An toàn
+                steps = animationFrames.Count - 1;
             }
 
-            return animationFrames[steps];
+            // --- SỬA LỖI: Dùng hàm tải ảnh an toàn ---
+            return LoadImageFromFile(animationFrames[steps]);
         }
 
         public Image GetDefaultFrame(string direction = "down")
         {
             try
             {
+                string filePath = null;
                 switch (direction)
                 {
-                    case "up": return BackImages.Count > 0 ? BackImages[0] : null;
-                    case "down": return FrontImages.Count > 0 ? FrontImages[0] : null;
-                    case "left": return LeftImages.Count > 0 ? LeftImages[0] : null;
-                    case "right": return RightImages.Count > 0 ? RightImages[0] : null;
-                    default: return FrontImages.Count > 0 ? FrontImages[0] : null;
+                    case "up": if (BackImages.Count > 0) filePath = BackImages[0]; break;
+                    case "down": if (FrontImages.Count > 0) filePath = FrontImages[0]; break;
+                    case "left": if (LeftImages.Count > 0) filePath = LeftImages[0]; break;
+                    case "right": if (RightImages.Count > 0) filePath = RightImages[0]; break;
+                    default: if (FrontImages.Count > 0) filePath = FrontImages[0]; break;
                 }
+
+                if (filePath != null)
+                {
+                    // --- SỬA LỖI: Dùng hàm tải ảnh an toàn ---
+                    return LoadImageFromFile(filePath);
+                }
+                return null;
             }
             catch { return null; }
         }

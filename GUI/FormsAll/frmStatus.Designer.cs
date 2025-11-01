@@ -1,4 +1,4 @@
-﻿namespace GUI.FormAll // SỬA LỖI 1: Đổi namespace từ Main thành GUI.FormAll
+﻿namespace Main 
 {
     partial class frmStatus
     {

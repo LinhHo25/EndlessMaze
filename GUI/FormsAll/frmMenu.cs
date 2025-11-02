@@ -38,6 +38,7 @@ namespace Main
             InitializeComponent();
             LoadCustomFont(); // Tải font (Từ Code 2)
             ApplyStyles(); // Áp dụng style cơ bản (Từ Code 2)
+            this.KeyPreview = true;
         }
 
         // --- THÊM: Constructor chính để nhận dữ liệu game ---
@@ -125,6 +126,18 @@ namespace Main
                         btn.MouseEnter += (s, e) => { btn.BackColor = Color.FromArgb(150, 30, 30); };
                         btn.MouseLeave += (s, e) => { btn.BackColor = Color.FromArgb(100, 20, 20); };
                     }
+                    // --- THÊM: STYLE CHO NÚT CLOSE (X) ---
+                    else if (btn.Name == "btnClose")
+                    {
+                        btn.FlatStyle = FlatStyle.Flat;
+                        btn.FlatAppearance.BorderSize = 0;
+                        btn.BackColor = Color.FromArgb(192, 57, 43); // Màu đỏ (giống frmStatus)
+                        btn.ForeColor = Color.White;
+                        btn.Font = new Font(pixelFont_Button.FontFamily, 10F, FontStyle.Bold); // Font nhỏ hơn
+                        btn.Text = "X";
+                        btn.MouseEnter += (s, e) => { btn.BackColor = Color.FromArgb(231, 76, 60); }; // Đỏ sáng
+                        btn.MouseLeave += (s, e) => { btn.BackColor = Color.FromArgb(192, 57, 43); }; // Đỏ
+                    }
                 }
             }
         }
@@ -184,6 +197,24 @@ namespace Main
                 // (Thêm logic để thoát game ở đây,
                 // ví dụ: đặt một cờ (flag) để form game chính đọc)
                 this.DialogResult = DialogResult.Abort; // Gửi tín hiệu 'Abort' về frmMazeGame
+                this.Close();
+            }
+        }
+
+        // --- THÊM: NÚT ĐÓNG (X) ---
+        private void btnClose_Click(object sender, EventArgs e)
+        {
+            // Đóng form (giống như nhấn Escape)
+            this.Close();
+        }
+
+        // --- THÊM: HÀM BẮT PHÍM ESCAPE ĐỂ RESUME ---
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            // Nếu người chơi nhấn Escape, đóng form này (Resume game)
+            if (e.KeyCode == Keys.Escape)
+            {
                 this.Close();
             }
         }

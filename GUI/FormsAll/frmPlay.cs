@@ -129,6 +129,9 @@ namespace Main
         // --- SỬA: Hàm khởi chạy game (nhận thêm mapLevel) ---
         private void StartGame(int characterId, int mapLevel)
         {
+            // Biến lưu trữ kết quả của màn chơi
+            DialogResult gameResult = DialogResult.Cancel; // Giả sử là thua/thoát
+
             try
             {
                 var characterDetails = _characterService.GetCharacterDetails(characterId);
@@ -139,16 +142,32 @@ namespace Main
                 }
 
                 // --- SỬA: Mở frmMazeGame thay vì MessageBox ---
-                // (Giả sử bạn có frmMazeGame_v3.cs trong dự án)
-                frmMainGame mainGame = new frmMainGame(characterDetails, mapLevel);
-                this.Hide();
-                mainGame.ShowDialog();
-                // Sau khi game đóng (thua hoặc thoát), hiển thị lại form này
-                this.Show();
+                using (frmMainGame mainGame = new frmMainGame(characterDetails, mapLevel))
+                {
+                    this.Hide();
+                    // LƯU LẠI KẾT QUẢ KHI GAME ĐÓNG
+                    gameResult = mainGame.ShowDialog();
+                    // mainGame.ShowDialog() sẽ dừng ở đây cho đến khi frmMainGame đóng
+                }
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Lỗi khi bắt đầu game: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            // --- THÊM LOGIC QUA MÀN ---
+            // Kiểm tra kết quả sau khi game đóng
+            if (gameResult == DialogResult.OK)
+            {
+                // Nếu người chơi thắng (DialogResult.OK được gửi từ HandleMapExit)
+                // Tự động bắt đầu map tiếp theo bằng cách gọi đệ quy chính hàm này
+                StartGame(characterId, mapLevel + 1);
+            }
+            else
+            {
+                // Nếu người chơi thua (Cancel) hoặc thoát (Abort)
+                // Hiển thị lại form này để chọn lại
+                this.Show();
             }
         }
 

@@ -10,9 +10,6 @@ namespace GUI.GameEntities
 {
     public abstract class Monster
     {
-
-
-
         public enum MonsterState { Idle, Patrol, Chase, Attack, Casting, Hurt, Dead, Friendly } // THÊM TRẠNG THÁI FRIENDLY
         public MonsterState State { get; protected set; }
 
@@ -35,17 +32,18 @@ namespace GUI.GameEntities
         public AnimationActivity castAnim, spellAnim;
 
         protected string facingDirection = "down";
-        protected float aggroRange = 300;
+        protected float aggroRange = 300; // Tầm phát hiện (sẽ bị ghi đè bởi Orc, Slime, Boss)
         protected float attackRange = 90;
         protected PointF patrolOrigin;
         protected PointF patrolTarget;
         protected int patrolTimer = 0;
         protected static Random rand = new Random();
-        // --- THÊM CÁC BIẾN AI MỚI ---
-        protected float patrolRange = 10 * frmMainGame.TILE_SIZE; // 10 ô logic (10 * 30 = 300 pixel)
-        protected float chaseRange = 20 * frmMainGame.TILE_SIZE; // 20 ô logic (20 * 30 = 600 pixel)
-        protected float perceptionRange = 3 * frmMainGame.TILE_SIZE; // 3 ô logic (3 * 30 = 90 pixel)
-                                                                     // ----------------------------
+
+        // --- THAY ĐỔI: patrolRange, chaseRange được thiết lập bởi lớp con (ví dụ Orc) hoặc mặc định ở đây ---
+        protected float patrolRange = 10 * frmMainGame.TILE_SIZE; // 10 ô logic (mặc định)
+        protected float chaseRange = 20 * frmMainGame.TILE_SIZE; // 20 ô logic (mặc định)
+                                                                 // --- THAY ĐỔI: Xóa perceptionRange (vì đã sửa logic để dùng aggroRange) ---
+
         public Monster(float startX, float startY)
         {
             X = startX;
@@ -58,11 +56,13 @@ namespace GUI.GameEntities
         protected abstract void LoadAnimations();
         protected abstract void SetStats();
 
-        protected float GetDistanceToPlayer(float playerX, float playerY)
+        // --- SỬA LỖI AI: Đổi tham số thành tâm người chơi ---
+        // (Hàm Update đã truyền vào tâm, không cần cộng thêm ở đây)
+        protected float GetDistanceToPlayer(float playerCenterX, float playerCenterY)
         {
             // Player hitbox is 25x25 starting at (playerX, playerY). Center is at (playerX + 12.5, playerY + 12.5).
-            float playerCenterX = playerX + 12.5f;
-            float playerCenterY = playerY + 12.5f;
+            // float playerCenterX = playerX + 12.5f; // <-- XÓA DÒNG NÀY
+            // float playerCenterY = playerY + 12.5f; // <-- XÓA DÒNG NÀY
 
             // Monster center is at (X + Width/2, Y + Height/2).
             float monsterCenterX = X + Width / 2;
@@ -82,6 +82,7 @@ namespace GUI.GameEntities
             // (Sử dụng tâm của hitbox nhân vật, giả sử hitbox là 10x10)
             float playerCenterX = playerX + 5;
             float playerCenterY = playerY + 5;
+            // --- LỖI ĐÃ ĐƯỢC SỬA: Hàm GetDistanceToPlayer giờ đã chấp nhận (playerCenterX, playerCenterY) ---
             float distanceSq = GetDistanceToPlayer(playerCenterX, playerCenterY);
 
             // 1. XỬ LÝ TRẠNG THÁI (ƯU TIÊN CAO NHẤT)
@@ -125,19 +126,20 @@ namespace GUI.GameEntities
             // A. Nếu có thể thấy người chơi
             if (canSeePlayer)
             {
-                // A1. Nếu trong tầm đánh (lấy từ DB, giả sử 50 pixel)
+                // A1. Nếu trong tầm đánh (do lớp con (Orc) định nghĩa)
                 if (distanceSq <= attackRange * attackRange)
                 {
                     State = MonsterState.Attack;
                     attackAnim.ResetFrame();
                 }
-                // A2. Nếu trong tầm nhận diện (3 ô) hoặc đang truy đuổi (20 ô)
-                else if (distanceSq <= perceptionRange * perceptionRange || State == MonsterState.Chase)
+                // --- SỬA LỖI AI: Dùng aggroRange (10 ô) thay vì perceptionRange (3 ô) ---
+                // A2. Nếu trong tầm phát hiện (10 ô) hoặc đang truy đuổi
+                else if (distanceSq <= aggroRange * aggroRange || State == MonsterState.Chase)
                 {
                     State = MonsterState.Chase;
                     MoveTowards(game, new PointF(playerCenterX, playerCenterY), speed);
                 }
-                // A3. Nếu thấy người chơi nhưng ngoài tầm 3 ô và chưa truy đuổi
+                // A3. Nếu thấy người chơi nhưng ngoài tầm 10 ô và chưa truy đuổi
                 else
                 {
                     // Quay về tuần tra (nếu đang không làm gì)
@@ -260,9 +262,10 @@ namespace GUI.GameEntities
             // Thử tìm 5 lần
             for (int i = 0; i < 5; i++)
             {
-                // 1. Tạo vị trí ngẫu nhiên trong tầm 10 ô (patrolRange) so với mốc
+                // 1. Tạo vị trí ngẫu nhiên trong tầm (patrolRange) so với mốc
+                // patrolRange đã được Orc.cs ghi đè thành 5 ô (150px)
                 float randomAngle = (float)(rand.NextDouble() * 2 * Math.PI);
-                float randomDist = (float)(rand.NextDouble() * patrolRange); // Tối đa 10 ô
+                float randomDist = (float)(rand.NextDouble() * patrolRange);
 
                 float targetX = patrolOrigin.X + (float)Math.Cos(randomAngle) * randomDist;
                 float targetY = patrolOrigin.Y + (float)Math.Sin(randomAngle) * randomDist;
@@ -282,10 +285,16 @@ namespace GUI.GameEntities
                     patrolTarget = new PointF(targetX, targetY);
                     return;
                 }
+
+                // --- SỬA LỖI ĐỨNG YÊN ---
+                // Nếu thử thất bại, VẪN LƯU LẠI mục tiêu này làm dự phòng
+                // (Để tránh lỗi quay về mốc origin)
+                patrolTarget = new PointF(targetX, targetY);
+                // --- KẾT THÚC SỬA ---
             }
 
-            // Nếu thử 5 lần thất bại, quay về mốc
-            patrolTarget = patrolOrigin;
+            // Nếu thử 5 lần thất bại, nó sẽ dùng mục tiêu dự phòng cuối cùng
+            // (Đã xóa dòng: patrolTarget = patrolOrigin;)
         }
 
         public virtual void TakeDamage(int damage)
@@ -379,3 +388,5 @@ namespace GUI.GameEntities
         }
     }
 }
+
+

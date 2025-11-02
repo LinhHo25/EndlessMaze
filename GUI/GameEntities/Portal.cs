@@ -1,7 +1,9 @@
-﻿using Main;
+﻿// Thêm các thư viện cần thiết ở đầu tệp
+using Main;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO; // <-- THÊM
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -15,25 +17,28 @@ namespace GUI.GameEntities
         public int Height = 50;
         public RectangleF Hitbox => new RectangleF(X - Width / 2, Y - Height / 2, Width, Height);
 
-        private AnimationActivity anim;
-        private bool isReady = false; // Cờ báo hiệu đã sẵn sàng để qua màn
+        // --- SỬA: Thay thế 'anim' giả ---
+        private AnimationActivity anim; // <-- SỬA
+        private bool isReady = false;
 
         public Portal(float x, float y)
         {
             X = x; // Vị trí tâm
             Y = y;
 
-            // TODO: Tải hoạt ảnh cho Portal (hiện tại dùng ảnh giả)
-            // anim = new AnimationActivity(5);
-            // anim.LoadImages(null, "path/to/portal/images", null, null);
+            // --- SỬA: Tải hoạt ảnh thật cho Portal ---
+            // Tải hoạt ảnh từ đường dẫn bạn yêu cầu (GUI/ImgSource/Portal/Active)
+            anim = new AnimationActivity(5);
+            string portalPath = Path.Combine("ImgSource", "Portal", "Active");
+            anim.LoadImages(null, portalPath, null, null);
+
+            isReady = true; // Đặt là sẵn sàng ngay
+            // --- KẾT THÚC SỬA ---
         }
 
         public void Update()
         {
-            // (Nếu có hoạt ảnh, cập nhật ở đây)
-            // ví dụ: if (anim.IsFinished) isReady = true;
-
-            // Giả sử sau 1 giây là sẵn sàng
+            // (Hiện không cần làm gì ở Update, GetNextFrame tự xử lý)
             isReady = true;
         }
 
@@ -44,12 +49,26 @@ namespace GUI.GameEntities
 
         public void Draw(Graphics canvas, int scale)
         {
-            if (!isReady) return; // Chưa vẽ nếu chưa sẵn sàng
+            if (!isReady) return;
 
-            // Vẽ một hình elip màu tím làm cổng
-            float drawX = (X - Width / 2) * scale;
-            float drawY = (Y - Height / 2) * scale;
-            canvas.FillEllipse(Brushes.Purple, drawX, drawY, Width * scale, Height * scale);
+            // --- SỬA: Vẽ hoạt ảnh thay vì hình elip ---
+            Image frame = anim.GetNextFrame("down");
+            if (frame != null)
+            {
+                // Vẽ cổng lớn hơn hitbox (ví dụ: 80x80 logic, scale sau)
+                int drawWidth = 80;
+                int drawHeight = 80;
+
+                // Tính toán vị trí vẽ đã scale, căn giữa theo tâm X, Y
+                float drawX = (X * scale) - (drawWidth * scale / 2f);
+                float drawY = (Y * scale) - (drawHeight * scale / 2f);
+
+                using (frame)
+                {
+                    canvas.DrawImage(frame, drawX, drawY, drawWidth * scale, drawHeight * scale);
+                }
+            }
+            // --- KẾT THÚC SỬA ---
         }
     }
 }

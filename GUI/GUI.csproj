@@ -130,9 +130,11 @@
       <DependentUpon>frmStatus.cs</DependentUpon>
     </Compile>
     <Compile Include="GameEntities\Boss.cs" />
+    <Compile Include="GameEntities\GroundItem.cs" />
     <Compile Include="GameEntities\Monster.cs" />
     <Compile Include="GameEntities\Orc.cs" />
     <Compile Include="GameEntities\Portal.cs" />
+    <Compile Include="GameEntities\SceneryObject.cs" />
     <Compile Include="GameEntities\Slime.cs" />
     <Compile Include="GameEntities\SpellEffect.cs" />
     <Compile Include="Map\GameEnums.cs" />
@@ -197,6 +199,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="ImgSource\Armors\vwsmmfyu747f1_0.png" />
+    <Content Include="ImgSource\Armors\vwsmmfyu747f1_1.png" />
+    <Content Include="ImgSource\Armors\vwsmmfyu747f1_2.png" />
+    <Content Include="ImgSource\Armors\vwsmmfyu747f1_3.png" />
     <Content Include="ImgSource\Block\default\Floor\brick_gray_0.png" />
     <Content Include="ImgSource\Block\default\Floor\brick_gray_1.png" />
     <Content Include="ImgSource\Block\default\Floor\brick_gray_2.png" />
@@ -1844,6 +1850,23 @@
     <Content Include="ImgSource\Item\Weapon\B\icon_32_2_23.png" />
     <Content Include="ImgSource\Item\Weapon\C\icon_32_2_17.png" />
     <Content Include="ImgSource\Item\Weapon\D\icon_32_2_09.png" />
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_13.png" />
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_14.png" />
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_15.png" />
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_16.png" />
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_17.png" />
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_18.png" />
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_19.png" />
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_20.png" />
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_21.png" />
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_0.png" />
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_1.png" />
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_2.png" />
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_3.png" />
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_4.png" />
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_5.png" />
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_6.png" />
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_7.png" />
     <Content Include="ImgSource\Structure\Button\lever_animation_1.png" />
     <Content Include="ImgSource\Structure\Button\lever_animation_2.png" />
     <Content Include="ImgSource\Structure\Button\lever_animation_3.png" />

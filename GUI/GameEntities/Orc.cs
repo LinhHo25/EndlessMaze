@@ -27,8 +27,15 @@ namespace GUI.GameEntities
             attackDamage = 10;
             speed = 2.0f;
             patrolSpeed = 0.8f;
-            attackRange = 120;
-            aggroRange = 250;
+            attackRange = 120; // Tầm đánh (4 ô)
+
+            // --- THAY ĐỔI THEO YÊU CẦU ---
+            // 1. Giới hạn tuần tra 5 ô
+            base.patrolRange = 5 * frmMainGame.TILE_SIZE; // (5 * 30 = 150px)
+            // 2. Tầm phát hiện 10 ô
+            aggroRange = 10 * frmMainGame.TILE_SIZE; // (10 * 30 = 300px)
+            // 3. Tầm đuổi theo 20 ô (đã được đặt ở lớp Monster.cs)
+            // --- KẾT THÚC THAY ĐỔI ---
         }
 
         protected override void LoadAnimations()
@@ -47,6 +54,7 @@ namespace GUI.GameEntities
             runAnim = new AnimationActivity(6);
             runAnim.LoadImages(Path.Combine(runRoot, "Back"), Path.Combine(runRoot, "Front"), Path.Combine(runRoot, "Left"), Path.Combine(runRoot, "Right"));
 
+            // --- SỬA: Trả lại hoạt ảnh tấn công ĐỨNG YÊN (Atk) theo yêu cầu ---
             string attackRoot = Path.Combine(orcRoot, "Atk");
             attackAnim = new AnimationActivity(5) { IsLooping = false };
             attackAnim.LoadImages(Path.Combine(attackRoot, "Back"), Path.Combine(attackRoot, "Front"), Path.Combine(attackRoot, "Left"), Path.Combine(attackRoot, "Right"));
@@ -116,3 +124,4 @@ namespace GUI.GameEntities
         }
     }
 }
+

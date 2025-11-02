@@ -108,6 +108,25 @@ namespace BLL.Services
 
         // --- KẾT THÚC HÀM MỚI ---
 
+        // --- THÊM: HÀM TẢI BẢNG LOOT ---
+        /// <summary>
+        /// Lấy TẤT CẢ các quy tắc rơi đồ của quái vật từ CSDL
+        /// (Dùng để tải vào RAM khi bắt đầu game)
+        /// </summary>
+        public List<MonsterLootTables> GetMonsterLootTables()
+        {
+            try
+            {
+                // Tải tất cả các bảng loot
+                return _context.MonsterLootTables.ToList();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Lỗi khi lấy MonsterLootTables: " + ex.Message);
+                return new List<MonsterLootTables>();
+            }
+        }
+
         // (Bạn có thể thêm các hàm khác như GetPotionById, GetLootTables... ở đây)
     }
 }

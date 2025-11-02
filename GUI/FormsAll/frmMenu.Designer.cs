@@ -42,6 +42,7 @@
             // lblPaused
             // 
             this.lblPaused.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblPaused.Location = new System.Drawing.Point(0, 0);
             this.lblPaused.Font = new System.Drawing.Font("Arial", 16F, System.Drawing.FontStyle.Bold);
             this.lblPaused.Location = new System.Drawing.Point(0, 0);
             this.lblPaused.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
@@ -128,6 +129,18 @@
             this.lblVolume.TabIndex = 7;
             this.lblVolume.Text = "Âm lượng:";
             // 
+            // btnClose
+            // 
+            this.btnClose = new System.Windows.Forms.Button();
+            this.btnClose.Location = new System.Drawing.Point(330, 12);
+            this.btnClose.Margin = new System.Windows.Forms.Padding(4);
+            this.btnClose.Name = "btnClose";
+            this.btnClose.Size = new System.Drawing.Size(40, 37);
+            this.btnClose.TabIndex = 8;
+            this.btnClose.Text = "X";
+            this.btnClose.UseVisualStyleBackColor = true;
+            this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
+            //
             // frmMenu
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
@@ -136,6 +149,7 @@
             this.Controls.Add(this.lblVolume);
             this.Controls.Add(this.trackBarVolume);
             this.Controls.Add(this.btnMainMenu);
+            this.Controls.Add(this.btnClose);
             this.Controls.Add(this.btnSaveLoad);
             this.Controls.Add(this.btnEquipment);
             this.Controls.Add(this.btnStatus);
@@ -164,6 +178,7 @@
         private System.Windows.Forms.Button btnMainMenu;
         private System.Windows.Forms.TrackBar trackBarVolume;
         private System.Windows.Forms.Label lblVolume;
+        private System.Windows.Forms.Button btnClose;
     }
 }
 

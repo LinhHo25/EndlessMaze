@@ -14,6 +14,7 @@ using BLL.Services;
 using DAL.Models;
 using static BLL.Services.GameSessionService;
 using GUI.GameEntities; // <-- Thêm using để tìm thấy Monster, Boss, SpellEffect...
+using System.Diagnostics; // <-- THÊM: Để theo dõi thời gian chơi
 
 namespace Main
 {
@@ -23,6 +24,9 @@ namespace Main
     {
         private readonly DAL.Models.PlayerCharacters _character;
         private readonly int _mapLevel;
+        private int _currentHealth; // Máu hiện tại của nhân vật
+        private int _currentStamina; // THÊM: Stamina hiện tại
+        private int _currentDefense; // Giáp hiện tại của nhân vật
 
         // --- HẰNG SỐ MÊ CUNG VÀ GAME ---
         public const int TILE_SIZE = 30;
@@ -44,15 +48,21 @@ namespace Main
         public int _monstersKilled = 0;
         public bool _isBossDefeated = false;
         private bool _isExiting = false;
+        private bool _isExitOpen = false;
+        private bool _isAutoPiloting = false;
+        private PointF _autoPilotTarget;
 
         // --- Dịch vụ BLL và Chỉ số Game ---
         private GameSessionService _gameSessionService;
+        // THÊM: Service Bảng xếp hạng
+        private LeaderboardService _leaderboardService;
+        // THÊM: Đồng hồ bấm giờ
+        private Stopwatch _mapTimer;
+
         private DAL.Models.PlayerSessionInventory _inventory;
         private BLL.Services.GameSessionService.CalculatedStats _calculatedStats;
 
-        private int _currentHealth;
-        private int _currentStamina;
-        public int _chestsOpened = 0; // **MERGE: Thêm từ file 1**
+        public int _chestsOpened = 0;
 
         // Fonts và Brushes cho HUD
         private Font _hudFont = new Font("Segoe UI", 10, FontStyle.Bold);
@@ -67,8 +77,8 @@ namespace Main
         private Image playerImage;
         private float playerX = 1.5f * TILE_SIZE;
         private float playerY = 1.5f * TILE_SIZE;
-        public int playerWidth = 10; // **PUBLIC: Để Monster.cs có thể truy cập (nếu cần)**
-        public int playerHeight = 10; // **PUBLIC: Để Monster.cs có thể truy cập (nếu cần)**
+        public int playerWidth = 10;
+        public int playerHeight = 10;
 
         // Hoạt ảnh Player
         private AnimationActivity idleActivity;
@@ -102,20 +112,34 @@ namespace Main
         private Image wallTexture;
         private Image darkFloorTexture;
         private Image darkWallTexture;
-        private Image chestTexture; // **MERGE: Thêm từ file 1**
+        private Image chestTexture;
+        private Image potionIcon;
+
+        // --- THÊM: Biến cho Loot System ---
+        private List<GroundItem> _groundItems = new List<GroundItem>();
+        private List<MonsterLootTables> _monsterLootTables_RAM; // Bảng loot trong RAM
+        private List<Weapons> _allWeapons_RAM; // Định nghĩa vũ khí trong RAM
+        private List<Armors> _allArmors_RAM; // Định nghĩa giáp trong RAM
+        private GameDefinitionService _definitionService; // Service để tải RAM
+        private Random _lootRandom = new Random(); // Random cho loot
+
+        // --- THÊM: Biến cho Ngoại Cảnh ---
+        private List<SceneryObject> _sceneryObjects = new List<SceneryObject>();
+        private List<Image> _sceneryImages_RAM = new List<Image>();
 
         // --- Danh sách thực thể (Entity Lists) ---
         private List<Monster> monsters = new List<Monster>();
         private List<SpellEffect> spellEffects = new List<SpellEffect>();
-        private Portal _portal = null; // **GIỮ LẠI: Từ file gốc**
-        private List<Chest> chests = new List<Chest>(); // **MERGE: Thêm từ file 1**
-        private List<LootEffect> lootEffects = new List<LootEffect>(); // **MERGE: Thêm từ file 1**
+        private Portal _portal = null;
+        private List<Chest> chests = new List<Chest>();
+        private List<LootEffect> lootEffects = new List<LootEffect>();
 
         private List<RectangleF> _mazeWallRects = new List<RectangleF>();
         private int[,] _mazeGrid;
 
         // Hiệu ứng làm tối
         private ImageAttributes _darkenAttributes = new ImageAttributes();
+        private Font _uiFont;
 
 
         public frmMainGame(DAL.Models.PlayerCharacters character, int mapLevel)
@@ -138,6 +162,8 @@ namespace Main
 
             // Khởi tạo BLL
             _gameSessionService = new GameSessionService();
+            _leaderboardService = new LeaderboardService(); // <-- THÊM: Khởi tạo service BXH
+            _definitionService = new GameDefinitionService();
             _inventory = _character.PlayerSessionInventory.FirstOrDefault();
 
             // Tính chỉ số
@@ -145,18 +171,12 @@ namespace Main
 
             // Cài đặt Form
             this.Text = $"Chơi - {_character.CharacterName} (Map: {_mapLevel})";
-
-            // **THÊM: Bật chức năng Phóng to, Thu nhỏ, và Thay đổi kích thước**
             this.FormBorderStyle = FormBorderStyle.Sizable;
             this.MaximizeBox = true;
             this.MinimizeBox = true;
-            // **KẾT THÚC THÊM**
-
             this.DoubleBuffered = true;
             this.KeyPreview = true;
             this.Cursor = Cursors.Cross;
-
-            // **THÊM: Đăng ký sự kiện Resize**
             this.Resize += new System.EventHandler(this.frmMainGame_Resize);
 
             mapWidth = this.ClientSize.Width;
@@ -174,8 +194,15 @@ namespace Main
             playerY = (float)Math.Floor(passageCenterY - playerHeight / 2f);
 
             // Tạo quái
-            InitializeMonsters(); // **SỬ DỤNG: Logic spawn mới (đã bị thay thế)**
-            InitializeChests(); // **MERGE: Thêm từ file 1**
+            InitializeMonsters();
+            InitializeChests();
+
+            // KHỞI TẠO MỤC TIÊU AI CHO PLAYER
+            _autoPilotTarget = new PointF(playerX + playerWidth / 2f, playerY + playerHeight / 2f); // Bắt đầu tại vị trí hiện tại
+
+            // <-- THÊM: Khởi động đồng hồ bấm giờ
+            _mapTimer = new Stopwatch();
+            _mapTimer.Start();
 
             gameTimer.Start();
         }
@@ -273,16 +300,14 @@ namespace Main
             {
                 string floorPath = Path.Combine("ImgSource", "Block", "default", "Floor", "catacombs_0.png");
                 string wallPath = Path.Combine("ImgSource", "Block", "default", "Wall", "Stone_Wall", "stone_brick_1.png");
-                // **MERGE: Thêm đường dẫn Rương**
                 string chestPath = Path.Combine("ImgSource", "Structure", "chest", "chest_animation_1.png");
+                string potionIconPath = Path.Combine("ImgSource", "Item", "Potion", "Healing_Potion.png"); // (Giả sử tên file là potion_red_1.png)
 
                 floorTexture = Image.FromFile(floorPath);
                 wallTexture = Image.FromFile(wallPath);
+                chestTexture = LoadImageSafe(chestPath, wallTexture);
+                potionIcon = LoadImageSafe(potionIconPath, new Bitmap(32, 32)); // (Dùng bitmap rỗng làm fallback)
 
-                // **MERGE: Tải ảnh Rương (sử dụng LoadImageSafe)**
-                chestTexture = LoadImageSafe(chestPath, wallTexture); // Dùng wall làm fallback
-
-                // Gán texture tối bằng texture sáng để tránh lỗi
                 darkFloorTexture = floorTexture;
                 darkWallTexture = wallTexture;
 
@@ -291,20 +316,55 @@ namespace Main
             {
                 MessageBox.Show("Lỗi tải texture map: " + ex.Message);
             }
+
+            // --- THÊM: Tải ảnh Ngoại Cảnh (Scenery) vào RAM ---
+            try
+            {
+                string sceneryPath = Path.Combine("ImgSource", "Structure", "Water_Style", "Objects_separately");
+                if (Directory.Exists(sceneryPath))
+                {
+                    // Lấy tất cả các file .png trong thư mục
+                    var sceneryFiles = Directory.GetFiles(sceneryPath, "*.png");
+                    foreach (var filePath in sceneryFiles)
+                    {
+                        // Dùng hàm LoadImageSafe (đã có) để tránh khóa file
+                        _sceneryImages_RAM.Add(LoadImageSafe(filePath, null));
+                    }
+                    // Lọc bỏ các ảnh null nếu tải lỗi
+                    _sceneryImages_RAM = _sceneryImages_RAM.Where(img => img != null).ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Lỗi tải ảnh ngoại cảnh: " + ex.Message);
+            }
+
+            // --- THÊM: Tải định nghĩa Game vào RAM ---
+            // (Tuân thủ quy tắc "Không dùng DB trong Game Loop")
+            try
+            {
+                _monsterLootTables_RAM = _definitionService.GetMonsterLootTables();
+                _allWeapons_RAM = _definitionService.GetAllWeapons();
+                _allArmors_RAM = _definitionService.GetAllArmors();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi nghiêm trọng: Không thể tải định nghĩa game từ CSDL: " + ex.Message);
+                this.Close();
+            }
+
         }
 
         // --- TẠO MÊ CUNG ---
         private void GenerateMaze()
         {
-            // (Giả định bạn có lớp MazeGenerator và GameObjectType)
             try
             {
-                // Giả định lớp MazeGenerator nằm trong namespace GUI.GameEntities
-                // Hoặc nếu bạn có file MazeGeneration.cs, hãy đảm bảo nó có namespace đúng
                 MazeGenerator mazeGen = new MazeGenerator(MAZE_LOGIC_WIDTH, MAZE_LOGIC_HEIGHT);
                 mazeGen.GenerateMaze();
                 _mazeGrid = mazeGen.Maze;
                 _mazeWallRects.Clear();
+                _sceneryObjects.Clear();
 
                 int currentLogicWidth = _mazeGrid.GetLength(1);
                 int currentLogicHeight = _mazeGrid.GetLength(0);
@@ -316,6 +376,17 @@ namespace Main
                         if (_mazeGrid[y, x] == (int)GameObjectType.Wall)
                         {
                             _mazeWallRects.Add(new RectangleF(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE));
+
+                            // --- THÊM: Đặt ngoại cảnh ngẫu nhiên ---
+                            // Chỉ đặt nếu có ảnh và tỉ lệ 10% trúng
+                            if (_sceneryImages_RAM.Count > 0 && _lootRandom.Next(100) < 10) // 10% tỉ lệ
+                            {
+                                // Chọn 1 ảnh ngẫu nhiên từ RAM
+                                Image randomSceneryImage = _sceneryImages_RAM[_lootRandom.Next(_sceneryImages_RAM.Count)];
+
+                                // Tạo vật thể tại vị trí TILE của tường
+                                _sceneryObjects.Add(new SceneryObject(x * TILE_SIZE, y * TILE_SIZE, randomSceneryImage));
+                            }
                         }
                     }
                 }
@@ -323,77 +394,60 @@ namespace Main
             catch (Exception ex)
             {
                 MessageBox.Show($"Lỗi tạo mê cung: {ex.Message}. Hãy đảm bảo bạn có file MazeGeneration.cs.");
-                // Tạo một mê cung rỗng để tránh crash
                 _mazeGrid = new int[MAZE_LOGIC_HEIGHT, MAZE_LOGIC_WIDTH];
             }
         }
 
-        // **MERGE: THAY THẾ HOÀN TOÀN HÀM NÀY BẰNG LOGIC TỪ FILE 1**
         private void InitializeMonsters()
         {
-            monsters.Clear(); // Đảm bảo làm sạch
+            monsters.Clear();
 
-            // Kích thước hitbox logic (1:1)
             int slimeWidth = 20, slimeHeight = 20;
             int orcWidth = 25, orcHeight = 25;
             int bossWidth = 40, bossHeight = 40;
 
-            // SINH SLIME (25 con)
             for (int i = 0; i < 25; i++)
             {
                 PointF pos = FindRandomPassagePosition(slimeWidth, slimeHeight);
                 monsters.Add(new Slime(pos.X, pos.Y));
             }
 
-            // SINH ORC (25 con)
             for (int i = 0; i < 25; i++)
             {
                 PointF pos = FindRandomPassagePosition(orcWidth, orcHeight);
                 monsters.Add(new Orc(pos.X, pos.Y));
             }
 
-            // SPAWN BOSS (cách xa ít nhất 1/2 map)
-            // PointF bossPos = FindRandomPassagePosition(bossWidth, bossHeight, isBoss: true); // TẮT SPAWN NGẪU NHIÊN
+            int bossTileX = MAZE_LOGIC_WIDTH - 2;
+            int bossTileY = MAZE_LOGIC_HEIGHT - 2;
 
-            // --- SPAWN BOSS CỐ ĐỊNH Ở GÓC DƯỚI BÊN PHẢI ---
-            // Chọn ô tile (49, 29) (vì map rộng 51 và cao 31, trừ 2 để tránh tường biên)
-            int bossTileX = MAZE_LOGIC_WIDTH - 2;  // 51 - 2 = 49
-            int bossTileY = MAZE_LOGIC_HEIGHT - 2; // 31 - 2 = 29
-
-            // Tính toán vị trí TÂM (logic 1:1) của ô tile đó
             float bossCenterX = bossTileX * TILE_SIZE + TILE_SIZE / 2f;
             float bossCenterY = bossTileY * TILE_SIZE + TILE_SIZE / 2f;
 
-            // Tính toán vị trí Top-Left (X, Y) của Boss dựa trên hitbox
             float bossSpawnX = bossCenterX - bossWidth / 2f;
             float bossSpawnY = bossCenterY - bossHeight / 2f;
 
             PointF bossPos = new PointF(bossSpawnX, bossSpawnY);
-            // --- KẾT THÚC SPAWN CỐ ĐỊNH ---
 
             monsters.Add(new Boss(bossPos.X, bossPos.Y));
         }
 
-        // **MERGE: THÊM HÀM HELPER TỪ FILE 1**
         private PointF FindRandomPassagePosition(int entityWidth, int entityHeight, bool isBoss = false)
         {
             Random rand = new Random();
             int currentLogicHeight = _mazeGrid.GetLength(0);
             int currentLogicWidth = _mazeGrid.GetLength(1);
 
-            // Vị trí tâm Player logic (1:1)
             float playerCenterX = playerX + playerWidth / 2f;
             float playerCenterY = playerY + playerHeight / 2f;
 
-            // Khoảng cách tối thiểu cho Boss (1/2 Map logic)
             float minBossDistanceSq = (MAZE_LOGIC_WIDTH * TILE_SIZE / 2f);
             minBossDistanceSq *= minBossDistanceSq;
 
-            // Phạm vi đẩy ra khi quá 3 quái (15 ô logic)
             float repelRange = TILE_SIZE * 15;
             float repelRangeSq = repelRange * repelRange;
 
-            for (int i = 0; i < 500; i++) // Thử 500 lần
+            for (int i = 0; i < 500; i++)
             {
                 int tileX = rand.Next(1, currentLogicWidth - 1);
                 int tileY = rand.Next(1, currentLogicHeight - 1);
@@ -403,7 +457,6 @@ namespace Main
                     float centerX = tileX * TILE_SIZE + TILE_SIZE / 2f;
                     float centerY = tileY * TILE_SIZE + TILE_SIZE / 2f;
 
-                    // 1. Kiểm tra va chạm Tường
                     RectangleF testHitbox = new RectangleF(centerX - entityWidth / 2f, centerY - entityHeight / 2f, entityWidth, entityHeight);
                     RectangleF scaledTestHitbox = new RectangleF(
                         testHitbox.X * RENDER_SCALE, testHitbox.Y * RENDER_SCALE,
@@ -411,15 +464,13 @@ namespace Main
                     );
 
                     if (IsCollidingWithWallScaled(scaledTestHitbox))
-                        continue; // Bỏ qua nếu va chạm tường
+                        continue;
 
-                    // 2. Kiểm tra khoảng cách tối thiểu cho Boss
                     float distToPlayerSq = (centerX - playerCenterX) * (centerX - playerCenterX) + (centerY - playerCenterY) * (centerY - playerCenterY);
 
                     if (isBoss && distToPlayerSq < minBossDistanceSq)
-                        continue; // Boss phải cách xa hơn 1/2 map
+                        continue;
 
-                    // 3. Kiểm tra mật độ (Tối đa 3 quái vật trong 1 ô logic 30x30)
                     int nearbyMonsters = monsters.Count(m =>
                         m.Hitbox.IntersectsWith(testHitbox) ||
                         (m.X >= centerX - TILE_SIZE && m.X <= centerX + TILE_SIZE &&
@@ -428,14 +479,11 @@ namespace Main
 
                     if (nearbyMonsters <= 3)
                     {
-                        // Vị trí hợp lệ
                         return new PointF(testHitbox.X, testHitbox.Y);
                     }
                 }
             }
 
-            // Nếu không tìm được vị trí lý tưởng (hoặc mật độ quá cao), tìm một vị trí xa hơn
-            // Đây là logic repelling (đẩy ra)
             for (int i = 0; i < 500; i++)
             {
                 int tileX = rand.Next(1, currentLogicWidth - 1);
@@ -454,7 +502,6 @@ namespace Main
 
                     if (IsCollidingWithWallScaled(scaledTestHitbox)) continue;
 
-                    // Kiểm tra xem vị trí mới này có cách xa các quái vật khác không (10-20 ô)
                     bool isFarEnough = true;
                     foreach (var m in monsters)
                     {
@@ -474,26 +521,17 @@ namespace Main
                 }
             }
 
-            // Fallback cuối cùng
             return new PointF(1.5f * TILE_SIZE - entityWidth / 2f, 1.5f * TILE_SIZE - entityHeight / 2f);
         }
 
-        // **MERGE: THÊM HÀM TỪ FILE 1**
         private void InitializeChests()
         {
-            chests.Clear(); // Xóa rương cũ
-
-            // Rương 1: Góc trên bên trái, sát biên (1, 3)
+            chests.Clear();
             chests.Add(new Chest(1 * TILE_SIZE + TILE_SIZE / 2f, 3 * TILE_SIZE + TILE_SIZE / 2f));
-            // Rương 2: Góc trên bên phải, sát biên (49, 1)
             chests.Add(new Chest((MAZE_LOGIC_WIDTH - 2) * TILE_SIZE + TILE_SIZE / 2f, 1 * TILE_SIZE + TILE_SIZE / 2f));
-            // Rương 3: Góc dưới bên trái, sát biên (1, 29)
             chests.Add(new Chest(1 * TILE_SIZE + TILE_SIZE / 2f, (MAZE_LOGIC_HEIGHT - 2) * TILE_SIZE + TILE_SIZE / 2f));
-            // Rương 4: Góc dưới bên phải (tránh Boss) (45, 27)
             chests.Add(new Chest(45 * TILE_SIZE + TILE_SIZE / 2f, 27 * TILE_SIZE + TILE_SIZE / 2f));
-            // Rương 5: Trung tâm map, hốc chẵn (25, 15)
             chests.Add(new Chest(25 * TILE_SIZE + TILE_SIZE / 2f, 15 * TILE_SIZE + TILE_SIZE / 2f));
-            // Rương 6: Gần góc (35, 7)
             chests.Add(new Chest(35 * TILE_SIZE + TILE_SIZE / 2f, 7 * TILE_SIZE + TILE_SIZE / 2f));
         }
 
@@ -503,11 +541,23 @@ namespace Main
         {
             if (isDead) return;
 
-            // **MERGE: Thêm kiểm tra phím E cho Rương**
+            // THÊM: Tạm dừng game bằng Escape
+            if (e.KeyCode == Keys.Escape)
+            {
+                PauseGame();
+                return;
+            }
+
             if (e.KeyCode == Keys.E)
             {
-                CheckChestInteraction(); // Gọi hàm kiểm tra tương tác rương
+                CheckChestInteraction();
                 return;
+            }
+
+            if (e.KeyCode == Keys.F)
+            {
+                UseHealthPotionFromGame();
+                return; // Không làm gì khác
             }
 
             if (e.KeyCode == Keys.W) goUp = true;
@@ -518,15 +568,21 @@ namespace Main
 
             if (e.KeyCode == Keys.ShiftKey && !isDashing && dashCooldown == 0 && _currentStamina > 10)
             {
-                isDashing = true;
-                dashTimer = 10;
-                dashCooldown = 60;
-                GetDashDirection();
+                if (_currentStamina >= 50)
+                {
+                    _currentStamina -= 50;
+                    isDashing = true;
+                    dashTimer = 10;
+                    dashCooldown = 60;
+                    GetDashDirection();
+                }
             }
         }
 
         private void frmMainGame_KeyUp(object sender, KeyEventArgs e)
         {
+            if (_isAutoPiloting) return;
+
             if (e.KeyCode == Keys.W) goUp = false;
             if (e.KeyCode == Keys.S) goDown = false;
             if (e.KeyCode == Keys.A) goLeft = false;
@@ -556,32 +612,90 @@ namespace Main
 
         #endregion
 
-        // **MERGE: THÊM HÀM TỪ FILE 1**
+        // THÊM: Hàm tạm dừng game
+        private void PauseGame()
+        {
+            gameTimer.Stop();
+            _mapTimer.Stop();
+
+            // Mở frmMenu và truyền dữ liệu
+            using (frmMenu pauseMenu = new frmMenu(_character, _inventory, _calculatedStats, _gameSessionService, _currentHealth))
+            {
+                DialogResult result = pauseMenu.ShowDialog();
+
+                // Xử lý kết quả sau khi menu đóng
+                if (result == DialogResult.Abort) // Người chơi chọn "Main Menu"
+                {
+                    this.DialogResult = DialogResult.Cancel; // Báo hiệu cho frmPlay là không thắng
+                    this.Close();
+                    return;
+                }
+                else
+                {
+                    // Người chơi nhấn "Resume" (hoặc đóng form)
+                    // Cập nhật lại máu (phòng trường hợp dùng item)
+                    _currentHealth = pauseMenu.UpdatedHealth;
+                    gameTimer.Start();
+                    _mapTimer.Start();
+                }
+            }
+        }
+
+        // --- THÊM: HÀM SỬ DỤNG THUỐC TỪ TRONG GAME ---
+        /// <summary>
+        /// Được gọi khi người chơi nhấn phím F
+        /// </summary>
+        private void UseHealthPotionFromGame()
+        {
+            if (isDead || _inventory == null || _gameSessionService == null) return;
+
+            // Kiểm tra xem còn thuốc không
+            if (_inventory.HealthPotionCount > 0)
+            {
+                // Gọi BLL để sử dụng thuốc (BLL sẽ tự kiểm tra máu đầy)
+                int newHealth = _gameSessionService.UseHealthPotion(_character.CharacterID, _currentHealth);
+
+                if (newHealth > _currentHealth) // Nếu dùng thành công (máu tăng)
+                {
+                    _currentHealth = newHealth; // Cập nhật máu hiện tại
+                    _inventory.HealthPotionCount--; // Cập nhật số lượng local cho HUD
+
+                    // (Tùy chọn: Thêm hiệu ứng âm thanh/hình ảnh dùng thuốc ở đây)
+                }
+                else
+                {
+                    // (Tùy chọn: Thêm âm thanh báo lỗi - ví dụ: máu đã đầy)
+                }
+            }
+            else
+            {
+                // (Tùy chọn: Thêm âm thanh báo lỗi - hết thuốc)
+            }
+        }
+
+
         private void CheckChestInteraction()
         {
             RectangleF playerHitboxLogic = new RectangleF(playerX, playerY, playerWidth, playerHeight);
 
             foreach (var chest in chests.ToList())
             {
-                // Kiểm tra Player có va chạm với rương không
                 if (!chest.IsOpened && playerHitboxLogic.IntersectsWith(chest.Hitbox))
                 {
                     OpenChest(chest);
-                    return; // Chỉ mở 1 rương mỗi lần nhấn phím
+                    return;
                 }
             }
         }
 
-        // **MERGE: THÊM HÀM TỪ FILE 1**
         private void OpenChest(Chest chest)
         {
             chest.IsOpened = true;
-            chest.StartOpenAnimation(); // Bắt đầu hoạt ảnh mở
+            chest.StartOpenAnimation();
             _chestsOpened++;
 
-            // 100% ra tối thiểu 1 bình
             int potionCount = 1;
-            int roll = new Random().Next(1, 101); // Roll từ 1 đến 100
+            int roll = new Random().Next(1, 101);
 
             if (roll <= 10) potionCount = 4;
             else if (roll <= 30) potionCount = 3;
@@ -590,7 +704,6 @@ namespace Main
 
             MessageBox.Show($"Bạn tìm thấy {potionCount} bình Thuốc Hồi Máu!", "Rương đã mở");
 
-            // Tạo hiệu ứng Loot tại vị trí rương
             for (int i = 0; i < potionCount; i++)
             {
                 float lootX = chest.X + new Random().Next(-10, 10);
@@ -598,7 +711,6 @@ namespace Main
                 lootEffects.Add(new LootEffect(lootX, lootY, chest.Width, chest.Height));
             }
 
-            // HỒI MÁU (Giả định mỗi bình hồi 50 HP)
             _currentHealth = Math.Min(_calculatedStats.TotalHealth, _currentHealth + potionCount * 50);
         }
 
@@ -612,12 +724,10 @@ namespace Main
             UpdateFogOfWar();
             UpdateAnimation();
 
-            // Cập nhật quái vật
             foreach (var monster in monsters.ToList())
             {
                 monster.Update(this, playerX, playerY, spellEffects);
 
-                // **MERGE: Gộp logic xử lý quái vật chết**
                 if (monster.State == Monster.MonsterState.Dead && monster.deathAnim.IsFinished)
                 {
                     float monsterCenterX = monster.X + monster.Width / 2;
@@ -626,18 +736,29 @@ namespace Main
                     monsters.Remove(monster);
                     _monstersKilled++;
 
-                    // **MERGE: Thêm Loot Effect (từ file 1)**
-                    int lootCount = (monster is Boss) ? 5 : 1;
-                    for (int i = 0; i < lootCount; i++)
+                    // --- SỬA: Logic Rơi Vật phẩm (Loot) ---
+                    // Xóa logic LootEffect cũ:
+                    // int lootCount = (monster is Boss) ? 5 : 1;
+                    // for (int i = 0; i < lootCount; i++)
+                    // {
+                    //    lootEffects.Add(new LootEffect(monster.X, monster.Y, monster.Width, monster.Height));
+                    // }
+
+                    // THÊM: Logic Roll Loot Mới (từ RAM)
+                    List<object> drops = RollLootFromRAM(monster);
+                    foreach (var item in drops)
                     {
-                        lootEffects.Add(new LootEffect(monster.X, monster.Y, monster.Width, monster.Height));
+                        // Rơi vật phẩm tại vị trí quái chết, hơi ngẫu nhiên một chút
+                        float dropX = monsterCenterX + _lootRandom.Next(-5, 6);
+                        float dropY = monsterCenterY + _lootRandom.Next(-5, 6);
+                        _groundItems.Add(new GroundItem(item, dropX, dropY));
                     }
 
-                    // **GIỮ LẠI: Logic tạo Portal (từ file gốc)**
                     if (monster is Boss)
                     {
                         _isBossDefeated = true;
                         _portal = new Portal(monsterCenterX, monsterCenterY);
+                        _isExitOpen = true;
                     }
                 }
             }
@@ -649,11 +770,30 @@ namespace Main
                 if (spell.IsFinished)
                 {
                     spellEffects.Remove(spell);
-                    spell.Dispose(); // <-- GỌI DISPOSE
+                    spell.Dispose();
                 }
             }
 
-            // **MERGE: Thêm logic cập nhật Loot và Rương (từ file 1)**
+            // --- THÊM LOGIC CỔNG "FRIENDLY BOSS" ---
+            // Nếu Boss chưa bị đánh bại VÀ cổng chưa xuất hiện
+            if (!_isBossDefeated && _portal == null)
+            {
+                // Tìm Boss
+                var boss = monsters.OfType<Boss>().FirstOrDefault();
+
+                // Kiểm tra xem Boss có tồn tại và đang ở trạng thái Friendly không
+                // (Logic trong Boss.cs sẽ đặt trạng thái này nếu _monstersKilled == 0)
+                if (boss != null && boss.State == Monster.MonsterState.Friendly)
+                {
+                    // Nếu Boss thân thiện, tạo cổng ngay tại chỗ Boss
+                    float bossCenterX = boss.X + boss.Width / 2;
+                    float bossCenterY = boss.Y + boss.Height / 2;
+                    _portal = new Portal(bossCenterX, bossCenterY);
+                    _isExitOpen = true; // Cho phép qua màn
+                }
+            }
+
+            // Cập nhật hiệu ứng Loot
             foreach (var loot in lootEffects.ToList())
             {
                 loot.Update();
@@ -663,12 +803,22 @@ namespace Main
                 }
             }
 
+            foreach (var loot in lootEffects.ToList())
+            {
+                loot.Update();
+                if (loot.IsFinished)
+                {
+                    lootEffects.Remove(loot);
+                }
+            }
+
+            UpdateGroundItems();
+
             foreach (var chest in chests)
             {
                 chest.UpdateAnimation();
             }
 
-            // **GIỮ LẠI: Logic cập nhật Portal (từ file gốc)**
             if (_portal != null && !_isExiting)
             {
                 _portal.Update();
@@ -677,15 +827,19 @@ namespace Main
                 if (_portal.CheckCollision(playerHitbox))
                 {
                     _isExiting = true;
-                    // **GIỮ LẠI: Logic thoát an toàn (từ file gốc)**
+                    // SỬA: Gọi hàm HandleMapExit
                     HandleMapExit("Đã qua cổng!");
                 }
             }
 
-            // Hồi Stamina
             UpdateStaminaRegen();
 
-            // Yêu cầu vẽ lại
+            if (_isExitOpen && IsCollidingWithExit(playerX, playerY))
+            {
+                // SỬA: Gọi hàm HandleMapExit
+                HandleMapExit("Chiến thắng!");
+            }
+
             this.Invalidate();
         }
 
@@ -694,8 +848,6 @@ namespace Main
         /// </summary>
         private void UpdateStaminaRegen()
         {
-            // **MERGE: Logic hồi stamina phức tạp hơn từ file 1 (đã được tích hợp vào file gốc)**
-            // (File gốc đã có logic hồi stamina đơn giản, ta giữ nguyên)
             if (!isDashing && _currentStamina < _character.BaseStamina)
             {
                 _currentStamina += 1;
@@ -767,9 +919,18 @@ namespace Main
             // 2. VẼ SÀN và TƯỜNG
             DrawFloor(canvas);
             DrawWalls(canvas);
-
-            // **MERGE: Thêm DrawChests (từ file 1)**
+            // --- THÊM: VẼ NGOẠI CẢNH ---
+            // (Vẽ sau tường, nhưng trước rương và vật phẩm)
+            DrawScenery(canvas);
             DrawChests(canvas);
+
+            // --- THÊM: VẼ VẬT PHẨM TRÊN ĐẤT ---
+            // (Vẽ trước Player để Player đè lên trên)
+            foreach (var item in _groundItems)
+            {
+                // TODO: Thêm kiểm tra Fog of War nếu muốn
+                item.Draw(canvas, RENDER_SCALE);
+            }
 
             // 3. VẼ CÁC THỰC THỂ
             if (playerImage != null)
@@ -803,13 +964,11 @@ namespace Main
                 spell.Draw(canvas, RENDER_SCALE);
             }
 
-            // **MERGE: Thêm Draw LootEffects (từ file 1)**
             foreach (var loot in lootEffects)
             {
                 loot.Draw(canvas, RENDER_SCALE);
             }
 
-            // **GIỮ LẠI: Draw Portal (từ file gốc)**
             if (_portal != null)
             {
                 _portal.Draw(canvas, RENDER_SCALE);
@@ -820,11 +979,10 @@ namespace Main
             DrawHUD(canvas);
         }
 
-        // **MERGE: THÊM HÀM TỪ FILE 1**
         private void DrawChests(Graphics canvas)
         {
             RectangleF viewportRect = new RectangleF(_cameraX, _cameraY, mapWidth, mapHeight);
-            int chestDrawSize = 60; // Kích thước vẽ rương (đã scale)
+            int chestDrawSize = 60;
 
             foreach (var chest in chests)
             {
@@ -852,11 +1010,11 @@ namespace Main
                             {
                                 imageToDraw = chest.OpenAnimation.GetDefaultFrame("down");
                             }
-                            attributesToUse = null; // Luôn sáng khi mở
+                            attributesToUse = null;
                         }
                         else
                         {
-                            attributesToUse = _darkenAttributes; // Tối nếu chưa mở
+                            attributesToUse = _darkenAttributes;
                         }
 
                         canvas.DrawImage(
@@ -907,9 +1065,38 @@ namespace Main
                 canvas.DrawString($"ATK: {_calculatedStats.TotalAttack}", _hudFont, _hudBrush, x + 10, y + 105);
                 canvas.DrawString($"DEF: {_calculatedStats.TotalDefense}", _hudFont, _hudBrush, x + 90, y + 105);
 
-                // **MERGE: Cập nhật text Rương (từ file 1)**
                 canvas.DrawString($"Quái: {_monstersKilled}", _hudFont, _hudBrush, x + 10, y + 130);
                 canvas.DrawString($"Rương: {_chestsOpened}", _hudFont, _hudBrush, x + 90, y + 130);
+
+                // THÊM: Vẽ thời gian
+                canvas.DrawString($"Map: {_mapLevel} | Thời gian: {_mapTimer.Elapsed:mm\\:ss}", _hudFont, _hudBrush, x + hudWidth + 20, y + 10);
+
+                // --- THÊM: VẼ HUD THUỐC (GÓC DƯỚI BÊN PHẢI) ---
+                if (potionIcon != null && _inventory != null)
+                {
+                    int iconSize = 48; // Kích thước icon
+                    int padding = 15; // Khoảng cách tới viền
+                    int iconX = mapWidth - iconSize - padding;
+                    int iconY = mapHeight - iconSize - padding;
+
+                    // 1. Vẽ Icon
+                    canvas.DrawImage(potionIcon, iconX, iconY, iconSize, iconSize);
+
+                    // 2. Vẽ số lượng
+                    string potionCount = _inventory.HealthPotionCount.ToString();
+                    SizeF stringSize = canvas.MeasureString(potionCount, _hudTitleFont);
+
+                    // Vị trí văn bản (ở góc dưới bên phải của icon)
+                    PointF textPos = new PointF(
+                        iconX + iconSize - stringSize.Width - 5,
+                        iconY + iconSize - stringSize.Height - 5
+                    );
+
+                    // Vẽ viền đen (shadow) cho dễ đọc
+                    canvas.DrawString(potionCount, _hudTitleFont, Brushes.Black, textPos.X + 1, textPos.Y + 1);
+                    // Vẽ chữ trắng
+                    canvas.DrawString(potionCount, _hudTitleFont, _hudBrush, textPos.X, textPos.Y);
+                }
             }
             catch (Exception ex)
             {
@@ -920,14 +1107,34 @@ namespace Main
 
         #region Logic Phụ (Va chạm, Tầm nhìn, Di chuyển...)
 
-        // **THÊM: Xử lý sự kiện Resize**
         private void frmMainGame_Resize(object sender, EventArgs e)
         {
-            // Cập nhật lại kích thước mapWidth/mapHeight để camera tính toán lại
             mapWidth = this.ClientSize.Width;
             mapHeight = this.ClientSize.Height;
-            // Yêu cầu vẽ lại để áp dụng kích thước mới
             this.Invalidate();
+        }
+
+        private bool IsCollidingWithExit(float pX, float pY)
+        {
+            int currentLogicHeight = _mazeGrid.GetLength(0);
+            int currentLogicWidth = _mazeGrid.GetLength(1);
+
+            for (int y = 0; y < currentLogicHeight; y++)
+            {
+                for (int x = 0; x < currentLogicWidth; x++)
+                {
+                    if (_mazeGrid[y, x] == (int)GameObjectType.Exit)
+                    {
+                        RectangleF exitRect = new RectangleF(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                        RectangleF playerHitbox = new RectangleF(pX, pY, playerWidth, playerHeight);
+                        if (playerHitbox.IntersectsWith(exitRect))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
         }
 
         private void CheckPlayerAttackHit()
@@ -964,7 +1171,8 @@ namespace Main
             {
                 if (monster.State != Monster.MonsterState.Dead && scaledAttackHitbox.IntersectsWith(monster.ScaledHitbox(RENDER_SCALE)))
                 {
-                    int playerDamage = 10; // (Sau này sẽ lấy từ _calculatedStats.TotalAttack)
+                    // SỬA: Lấy sát thương từ chỉ số đã tính
+                    int playerDamage = _calculatedStats.TotalAttack;
                     monster.TakeDamage(playerDamage);
                 }
             }
@@ -1007,10 +1215,10 @@ namespace Main
                                 canvas.DrawImage(
                                     imageToDraw,
                                     new Rectangle(
-                                        x * TILE_SIZE * RENDER_SCALE,
-                                        y * TILE_SIZE * RENDER_SCALE,
-                                        TILE_SIZE * RENDER_SCALE,
-                                        TILE_SIZE * RENDER_SCALE
+                                        (int)(x * TILE_SIZE * RENDER_SCALE),
+                                        (int)(y * TILE_SIZE * RENDER_SCALE),
+                                        (int)(TILE_SIZE * RENDER_SCALE),
+                                        (int)(TILE_SIZE * RENDER_SCALE)
                                     ),
                                     0, 0, imageToDraw.Width, imageToDraw.Height,
                                     GraphicsUnit.Pixel,
@@ -1073,6 +1281,48 @@ namespace Main
             }
         }
 
+        // --- THÊM: HÀM VẼ NGOẠI CẢNH ---
+        private void DrawScenery(Graphics canvas)
+        {
+            if (_sceneryImages_RAM.Count == 0) return;
+
+            foreach (var scenery in _sceneryObjects)
+            {
+                // Lấy vị trí Tile của vật thể
+                int tileX = (int)Math.Floor(scenery.X / TILE_SIZE);
+                int tileY = (int)Math.Floor(scenery.Y / TILE_SIZE);
+
+                // Kiểm tra an toàn
+                if (tileY >= 0 && tileY < MAZE_LOGIC_HEIGHT &&
+                    tileX >= 0 && tileX < MAZE_LOGIC_WIDTH)
+                {
+                    // Lấy vị trí Tile của Player
+                    int playerTileX = (int)((playerX + playerWidth / 2) / TILE_SIZE);
+                    int playerTileY = (int)((playerY + playerHeight / 2) / TILE_SIZE);
+
+                    // Kiểm tra tầm nhìn (Fog of War)
+                    bool isCurrentlyVisible = Math.Pow(tileX - playerTileX, 2) + Math.Pow(tileY - playerTileY, 2) <= Math.Pow(REVEAL_RADIUS, 2);
+
+                    ImageAttributes attributesToUse = null;
+
+                    if (_isTileVisible[tileY, tileX]) // Đã từng thấy
+                    {
+                        attributesToUse = _darkenAttributes; // Dùng ảnh mờ
+                    }
+                    if (isCurrentlyVisible) // Đang thấy
+                    {
+                        attributesToUse = null; // Dùng ảnh rõ
+                    }
+
+                    // Chỉ vẽ nếu đã thấy hoặc đang thấy
+                    if (attributesToUse != null || _isTileVisible[tileY, tileX])
+                    {
+                        scenery.Draw(canvas, RENDER_SCALE, attributesToUse);
+                    }
+                }
+            }
+        }
+
 
         private void UpdateFacingDirection()
         {
@@ -1084,8 +1334,12 @@ namespace Main
             float playerScaledX = playerX * RENDER_SCALE;
             float playerScaledY = playerY * RENDER_SCALE;
 
-            float deltaX = mouseXOnMap - (playerScaledX + playerWidth / 2);
-            float deltaY = mouseYOnMap - (playerScaledY + playerHeight / 2);
+            float playerScaledCenterX = playerScaledX + playerWidth * RENDER_SCALE / 2;
+            float playerScaledCenterY = playerScaledY + playerHeight * RENDER_SCALE / 2;
+
+
+            float deltaX = mouseXOnMap - playerScaledCenterX;
+            float deltaY = mouseYOnMap - playerScaledCenterY;
 
             if (Math.Abs(deltaX) > Math.Abs(deltaY))
             {
@@ -1132,6 +1386,22 @@ namespace Main
 
         private void UpdateMovement()
         {
+            if (_isAutoPiloting)
+            {
+                if (Math.Pow(_autoPilotTarget.X - (playerX + playerWidth / 2f), 2) + Math.Pow(_autoPilotTarget.Y - (playerY + playerHeight / 2f), 2) < (0.5f * TILE_SIZE) * (0.5f * TILE_SIZE))
+                {
+                    SetNewAutoPilotTarget();
+                }
+
+                float dxTarget = _autoPilotTarget.X - (playerX + playerWidth / 2f);
+                float dyTarget = _autoPilotTarget.Y - (playerY + playerHeight / 2f);
+
+                goUp = dyTarget < 0;
+                goDown = dyTarget > 0;
+                goLeft = dxTarget < 0;
+                goRight = dxTarget > 0;
+            }
+
             float dx = 0;
             float dy = 0;
 
@@ -1179,7 +1449,7 @@ namespace Main
                         moveY *= factor;
                     }
 
-                    int currentSpeed = isRunning ? runSpeed : walkSpeed;
+                    int currentSpeed = isRunning && _currentStamina > 0 ? runSpeed : walkSpeed;
                     dx = moveX * currentSpeed;
                     dy = moveY * currentSpeed;
                 }
@@ -1278,11 +1548,10 @@ namespace Main
                 }
             }
 
-            // 2. Va chạm với TƯỜNG BIÊN
             if (futureHitboxScaled.Left < 0) return true;
             if (futureHitboxScaled.Top < 0) return true;
             if (futureHitboxScaled.Bottom > _mapLogicalHeightScaled) return true;
-            if (futureHitboxScaled.Right > _mapLogicalWidthScaled) return true; // Chặn tường phải
+            if (futureHitboxScaled.Right > _mapLogicalWidthScaled) return true;
 
             return false;
         }
@@ -1322,11 +1591,38 @@ namespace Main
         }
 
 
-        // **GIỮ LẠI: Logic thoát an toàn (từ file gốc)**
+        // SỬA: Hàm xử lý qua màn
         private void HandleMapExit(string message)
         {
-            gameTimer.Stop(); // **QUAN TRỌNG: Dừng timer TRƯỚC KHI Mở MessageBox**
-            MessageBox.Show($"Đã tìm thấy cửa ra! Bạn đã hoàn thành map này ({message}).");
+            // Dừng game và thời gian TRƯỚC TIÊN
+            gameTimer.Stop();
+            _mapTimer.Stop();
+            _isExiting = true; // Đặt cờ để ngăn gọi lại
+
+            // 1. Lưu điểm vào Bảng Xếp Hạng
+            try
+            {
+                int timeInSeconds = (int)_mapTimer.Elapsed.TotalSeconds;
+                _leaderboardService.AddAdventureScore(
+                    _character.UserID,
+                    _character.CharacterName,
+                    timeInSeconds,
+                    _monstersKilled,
+                    _mapLevel
+                );
+            }
+            catch (Exception ex)
+            {
+                // Không làm dừng game nếu lưu điểm thất bại, chỉ thông báo
+                Console.WriteLine("Lỗi lưu bảng xếp hạng: " + ex.Message);
+                MessageBox.Show("Lỗi khi lưu điểm: " + ex.Message, "Lỗi BXH");
+            }
+
+            // 2. Thông báo cho người chơi
+            MessageBox.Show($"Đã hoàn thành Map {_mapLevel}! ({message})\nThời gian: {_mapTimer.Elapsed:mm\\:ss}\nQuái đã diệt: {_monstersKilled}", "Qua Màn!");
+
+            // 3. Gửi tín hiệu "Thắng" (OK) về cho frmPlay
+            this.DialogResult = DialogResult.OK;
             this.Close();
         }
 
@@ -1338,6 +1634,15 @@ namespace Main
             if (isDead)
             {
                 playerImage = deathActivity.GetNextFrame(direction);
+                // THÊM: Logic Game Over
+                if (deathActivity.IsFinished && gameTimer.Enabled) // Chỉ chạy 1 lần
+                {
+                    gameTimer.Stop();
+                    _mapTimer.Stop();
+                    MessageBox.Show("Bạn đã gục ngã...", "Game Over");
+                    this.DialogResult = DialogResult.Cancel; // Báo hiệu thua
+                    this.Close();
+                }
                 return;
             }
             else if (isHurt)
@@ -1386,18 +1691,169 @@ namespace Main
 
         #endregion
 
-        // --- XÓA TOÀN BỘ CÁC LỚP BÊN DƯỚI ĐÂY ---
-        // (XÓA GameObjectType VÀ MazeGenerator)
+        // --- THÊM: CÁC HÀM XỬ LÝ LOOT (VẬT PHẨM) ---
 
-        // **MERGE: Thêm các lớp (class) hỗ trợ từ file 1**
+        /// <summary>
+        /// Quyết định xem quái vật rơi ra vật phẩm gì (Sử dụng dữ liệu RAM)
+        /// </summary>
+        private List<object> RollLootFromRAM(Monster monster)
+        {
+            List<object> drops = new List<object>();
+            if (_monsterLootTables_RAM == null) return drops;
 
-        // --- Lớp Hiệu ứng Rơi đồ ---
+            // 1. Xác định ID của quái
+            // (Dựa trên MonsterName trong CSDL)
+            int monsterId = 0;
+            if (monster is Slime) monsterId = 1; // "Slime"
+            else if (monster is Orc) monsterId = 2; // "Orc"
+            else if (monster is Boss) monsterId = 3; // "Boss-Maze"
+            else return drops; // Quái không xác định
+
+            // 2. Roll cho Giáp (ItemType == 1)
+            var armorRules = _monsterLootTables_RAM
+                .Where(r => r.MonsterID == monsterId && r.ItemType == 1)
+                .ToList();
+            var armorDrop = GetDropFromRules(armorRules, 1);
+            if (armorDrop != null) drops.Add(armorDrop);
+
+            // 3. Roll cho Vũ khí (ItemType == 2)
+            var weaponRules = _monsterLootTables_RAM
+                .Where(r => r.MonsterID == monsterId && r.ItemType == 2)
+                .ToList();
+            var weaponDrop = GetDropFromRules(weaponRules, 2);
+            if (weaponDrop != null) drops.Add(weaponDrop);
+
+            return drops;
+        }
+
+        /// <summary>
+        /// Helper: Quay số dựa trên 1 bảng quy tắc (ví dụ: tất cả quy tắc của Giáp)
+        /// </summary>
+        private object GetDropFromRules(List<MonsterLootTables> rules, int itemType)
+        {
+            if (rules.Count == 0) return null;
+
+            // Tổng tỉ lệ (ví dụ: 60% + 30% + 10% = 100% (1.0))
+            double totalChance = rules.Sum(r => r.DropChance);
+            // Roll từ 0 đến tổng tỉ lệ
+            double roll = _lootRandom.NextDouble() * totalChance;
+            double cumulative = 0.0;
+
+            foreach (var rule in rules.OrderBy(r => r.ItemRank)) //
+            {
+                cumulative += rule.DropChance;
+                if (roll < cumulative)
+                {
+                    // Trúng! Lấy item từ RAM
+                    if (itemType == 1) // Giáp
+                        return _allArmors_RAM.FirstOrDefault(a => a.ArmorRank == rule.ItemRank);
+                    if (itemType == 2) // Vũ khí
+                        return _allWeapons_RAM.FirstOrDefault(w => w.WeaponRank == rule.ItemRank);
+
+                    return null;
+                }
+            }
+            return null; // Không trúng (nếu tổng tỉ lệ < 1.0)
+        }
+
+        /// <summary>
+        /// Cập nhật các vật phẩm trên đất và kiểm tra va chạm để nhặt
+        /// </summary>
+        private void UpdateGroundItems()
+        {
+            // Hitbox logic của người chơi
+            RectangleF playerHitbox = new RectangleF(playerX, playerY, playerWidth, playerHeight);
+
+            foreach (var item in _groundItems.ToList())
+            {
+                item.Update(); // Cập nhật hiệu ứng (ví dụ: nhấp nhô)
+
+                // Kiểm tra va chạm
+                if (playerHitbox.IntersectsWith(item.Hitbox))
+                {
+                    HandleItemPickup(item); // Xử lý nhặt
+                    item.IsMarkedForDeletion = true; // Đánh dấu xóa
+                }
+            }
+
+            // Xóa các item đã nhặt
+            _groundItems.RemoveAll(item => item.IsMarkedForDeletion);
+        }
+
+        /// <summary>
+        /// Xử lý logic khi nhặt một vật phẩm
+        /// </summary>
+        private void HandleItemPickup(GroundItem item)
+        {
+            // (Âm thanh nhặt đồ nên được thêm ở đây)
+
+            if (item.ItemData is Weapons newWeapon)
+            {
+                // Lấy vũ khí hiện tại (đã được BLL tải vào RAM)
+                var currentWeapon = _inventory.Weapons;
+
+                // So sánh chỉ số
+                if (newWeapon.AttackBonus > currentWeapon.AttackBonus)
+                {
+                    // Trang bị vũ khí mới TỐT HƠN
+                    _gameSessionService.EquipWeapon(_character.CharacterID, newWeapon.WeaponID);
+
+                    // Cập nhật bản sao trong RAM (cho HUD và lần so sánh tiếp theo)
+                    _inventory.EquippedWeaponID = newWeapon.WeaponID;
+                    _inventory.Weapons = newWeapon; // Quan trọng: Cập nhật tham chiếu
+                    UpdateCalculatedStats(); // Tính lại chỉ số cho HUD
+
+                    // (Thêm thông báo cho người chơi)
+                }
+            }
+            else if (item.ItemData is Armors newArmor)
+            {
+                // Lấy giáp hiện tại
+                var currentArmor = _inventory.Armors;
+
+                // So sánh chỉ số
+                if (newArmor.DefensePoints > currentArmor.DefensePoints)
+                {
+                    // Trang bị giáp mới TỐT HƠN
+                    _gameSessionService.EquipArmor(_character.CharacterID, newArmor.ArmorID);
+
+                    // Cập nhật bản sao trong RAM
+                    _inventory.EquippedArmorID = newArmor.ArmorID;
+                    _inventory.Armors = newArmor;
+                    UpdateCalculatedStats();
+
+                    // (Thêm thông báo cho người chơi)
+                }
+            }
+            // (Logic nhặt thuốc có thể thêm ở đây nếu quái rơi thuốc)
+        }
+
+        private void SetNewAutoPilotTarget()
+        {
+            Random rand = new Random();
+            int patrolRange = 5 * TILE_SIZE;
+
+            float randomAngle = (float)(rand.NextDouble() * 2 * Math.PI);
+            float randomDist = (float)(rand.NextDouble() * patrolRange);
+
+            float targetX = (playerX + playerWidth / 2f) + (float)Math.Cos(randomAngle) * randomDist;
+            float targetY = (playerY + playerHeight / 2f) + (float)Math.Sin(randomAngle) * randomDist;
+
+            float mapLogicWidth = MAZE_LOGIC_WIDTH * TILE_SIZE;
+            float mapLogicHeight = MAZE_LOGIC_HEIGHT * TILE_SIZE;
+
+            targetX = Math.Max(TILE_SIZE, Math.Min(mapLogicWidth - TILE_SIZE, targetX));
+            targetY = Math.Max(TILE_SIZE, Math.Min(mapLogicHeight - TILE_SIZE, targetY));
+
+            _autoPilotTarget = new PointF(targetX, targetY);
+        }
+
         public class LootEffect
         {
             private float X, Y;
             private int Width, Height;
             private float opacity = 1.0f;
-            private int duration = 60; // 1 giây
+            private int duration = 60;
             private int timer = 0;
             private float floatSpeed = 0.5f;
             public bool IsFinished => timer >= duration;
@@ -1419,7 +1875,6 @@ namespace Main
                     opacity = 1.0f - (float)(timer - duration / 2) / (duration / 2);
                 }
             }
-
             public void Draw(Graphics canvas, int scale)
             {
                 if (IsFinished) return;
@@ -1520,4 +1975,5 @@ namespace Main
     
     */
 }
+
 

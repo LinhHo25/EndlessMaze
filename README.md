@@ -7,8 +7,8 @@ B2, mở visual studio thay 3 appconfig ở dòng
 B3, chạy code
 
 
-di chuyển WASD
-Lướt  Ctrl
-đánh/focus chuột trái
-Nhặt đồ F
-Nhặt rương E
+-Di chuyển WASD
+-Lướt  Ctrl
+-Đánh/focus chuột trái
+-Nhặt đồ F
+-Nhặt rương E

@@ -1,7 +1,7 @@
 ﻿using DAL.Models;
 using System;
-using System.Linq;
 using System.Data.Entity; // Cần cho .Include()
+using System.Linq;
 
 namespace BLL.Services
 {
@@ -23,7 +23,7 @@ namespace BLL.Services
         }
 
         /// <summary>
-        /// Tính toán tổng chỉ số (cơ bản + trang bị).
+        /// Tính toán tổng chỉ số (cơ bản + trang bị) (Lấy từ DB).
         /// </summary>
         public CalculatedStats GetCalculatedStats(int characterId)
         {
@@ -31,9 +31,9 @@ namespace BLL.Services
             {
                 var character = db.PlayerCharacters.Find(characterId);
                 var inventory = db.PlayerSessionInventory
-                                  .Include(inv => inv.Weapons)
-                                  .Include(inv => inv.Armors)
-                                  .FirstOrDefault(inv => inv.CharacterID == characterId);
+                                    .Include(inv => inv.Weapons)
+                                    .Include(inv => inv.Armors)
+                                    .FirstOrDefault(inv => inv.CharacterID == characterId);
 
                 if (character == null || inventory == null) return null;
 
@@ -55,12 +55,41 @@ namespace BLL.Services
             }
         }
 
+        // --- THÊM: Hàm mới cho frmMazeGame (dùng dữ liệu có sẵn) ---
+        /// <summary>
+        /// Tính toán tổng chỉ số (cơ bản + trang bị) TỪ DỮ LIỆU CÓ SẴN.
+        /// (Dùng cho frmMazeGame để tránh gọi DB khi pause)
+        /// </summary>
+        public CalculatedStats CalculateStats(PlayerCharacters character, PlayerSessionInventory inventory)
+        {
+            try
+            {
+                if (character == null) return null;
+
+                // (inventory có thể null nếu code PauseGame bị lỗi, nhưng ta cứ kiểm tra)
+                int weaponAttack = inventory?.Weapons?.AttackBonus ?? 0;
+                int armorDefense = inventory?.Armors?.DefensePoints ?? 0;
+
+                return new CalculatedStats
+                {
+                    TotalHealth = character.BaseHealth,
+                    TotalAttack = character.BaseAttack + weaponAttack,
+                    TotalDefense = character.BaseDefense + armorDefense
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return null;
+            }
+        }
+        // --- KẾT THÚC THÊM ---
+
+
         /// <summary>
         /// Sử dụng một bình máu.
         /// </summary>
-        /// <param name="characterId">ID nhân vật</param>
-        /// <param name="currentHealth">Máu hiện tại của nhân vật</param>
-        /// <returns>Máu mới sau khi hồi, hoặc máu hiện tại nếu không dùng được.</returns>
+        // ... (Phần còn lại của tệp không đổi) ...
         public int UseHealthPotion(int characterId, int currentHealth)
         {
             try
@@ -147,3 +176,4 @@ namespace BLL.Services
         }
     }
 }
+

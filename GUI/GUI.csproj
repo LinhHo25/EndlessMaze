@@ -56,6 +56,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AnimationActivity.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -98,6 +99,12 @@
     <Compile Include="FormsAll\frmMain.Designer.cs">
       <DependentUpon>frmMain.cs</DependentUpon>
     </Compile>
+    <Compile Include="FormsAll\frmMainGame.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormsAll\frmMainGame.Designer.cs">
+      <DependentUpon>frmMainGame.cs</DependentUpon>
+    </Compile>
     <Compile Include="FormsAll\frmMenu.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -122,6 +129,12 @@
     <Compile Include="FormsAll\frmStatus.Designer.cs">
       <DependentUpon>frmStatus.cs</DependentUpon>
     </Compile>
+    <Compile Include="Map\GameEnums.cs" />
+    <Compile Include="Map\GameMapBase.cs" />
+    <Compile Include="Map\MapFire.cs" />
+    <Compile Include="Map\MapPoison.cs" />
+    <Compile Include="Map\MapWater.cs" />
+    <Compile Include="Map\MazeGeneration.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="FormsAll\frmdangky.resx">
@@ -2439,4 +2452,11 @@
     <Error Condition="!Exists('..\packages\EntityFramework.6.5.1\build\EntityFramework.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\EntityFramework.6.5.1\build\EntityFramework.targets'))" />
   </Target>
   <Import Project="..\packages\EntityFramework.6.5.1\build\EntityFramework.targets" Condition="Exists('..\packages\EntityFramework.6.5.1\build\EntityFramework.targets')" />
+
+<ItemGroup>
+  <Content Include="ImgSource\**\*">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </Content>
+</ItemGroup>
+  
 </Project>

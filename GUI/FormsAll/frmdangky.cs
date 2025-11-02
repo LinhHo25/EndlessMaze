@@ -7,7 +7,8 @@ using System.Windows.Forms;
 
 namespace Main
 {
-    public partial class frmDangKy : System.Windows.Forms.Form
+    // ĐỔI TÊN file này thành frmDangKy.cs khi sử dụng
+    public partial class frmDangKy : Form
     {
         private frmMain _mainForm;
 
@@ -42,6 +43,7 @@ namespace Main
         // Sự kiện click cho nút ĐĂNG NHẬP (ĐÃ SỬA)
         private void btnLogin_Click(object sender, EventArgs e)
         {
+            // Giả sử các controls của bạn có tên là txtUsername và txtPassword
             string username = txtUsername.Text;
             string password = txtPassword.Text;
 
@@ -64,6 +66,7 @@ namespace Main
                 playForm.Show();
                 // ----------------------------------------------
 
+                _mainForm.Hide(); // Ẩn form chính
                 this.Close(); // Đóng form đăng nhập
             }
             else
@@ -75,6 +78,7 @@ namespace Main
         // Sự kiện click cho nút ĐĂNG KÝ (ĐÃ SỬA)
         private void btnRegister_Click(object sender, EventArgs e)
         {
+            // Giả sử các controls của bạn có tên là txtUsername và txtPassword
             string username = txtUsername.Text;
             string password = txtPassword.Text;
 
@@ -93,19 +97,25 @@ namespace Main
                 MessageBox.Show("Đăng ký tài khoản thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                 // --- THÊM: Tự động tạo nhân vật mặc định ---
+                // (Giả sử bạn có hàm SendWelcomeEmail trong AuthService)
+                // _authService.SendWelcomeEmail(newUser.Username); 
                 try
                 {
-                    _characterService.CreateCharacter(newUser.UserID, "Nhà Thám Hiểm");
-                    MessageBox.Show("Đã tạo nhân vật mặc định 'Nhà Thám Hiểm' cho bạn.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    // --- SỬA: Đã vô hiệu hóa việc tự động tạo nhân vật ---
+                    // _characterService.CreateCharacter(newUser.UserID, "Nhà Thám Hiểm");
+                    // MessageBox.Show("Đã tạo nhân vật mặc định 'Nhà Thám Hiểm' cho bạn.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    // --- KẾT THÚC SỬA ---
 
                     // Tự động đăng nhập
                     frmPlay playForm = new frmPlay(_mainForm, newUser);
                     playForm.Show();
+                    _mainForm.Hide(); // Ẩn form chính
                     this.Close();
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Lỗi khi tạo nhân vật mặc định: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    // --- SỬA: Thay đổi thông báo lỗi ---
+                    MessageBox.Show("Lỗi khi tự động đăng nhập: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
                 // -----------------------------------------
             }
@@ -115,17 +125,14 @@ namespace Main
             }
         }
 
-        // (Giữ nguyên các hàm frmDangKy_FormClosed và frmdangky_Load)
-        // ... (các hàm khác) ...
         // Sự kiện đóng Form, quay lại frmMain
         private void frmDangKy_FormClosed(object sender, FormClosedEventArgs e)
         {
             // --- SỬA: Hiển thị lại main form khi đóng ---
             if (_mainForm != null && !_mainForm.IsDisposed)
             {
-                // Chỉ hiển thị nếu form play chưa mở
-                // (Kiểm tra xem có form nào khác ngoài Main đang mở không)
-                if (Application.OpenForms.Count == 1)
+                // Chỉ hiển thị nếu không có form nào khác (như frmPlay) đang mở
+                if (Application.OpenForms.Count == 1 && Application.OpenForms[0].Name == "frmMain")
                 {
                     _mainForm.Show();
                 }
@@ -136,11 +143,15 @@ namespace Main
         // Sự kiện Load Form
         private void frmdangky_Load(object sender, EventArgs e)
         {
+            // Tự động tìm control txtPassword và đặt thuộc tính PasswordChar
+            // (Giả sử control của bạn tên là txtPassword)
             if (this.Controls.Find("txtPassword", true).FirstOrDefault() is TextBox txtPass)
             {
                 txtPass.PasswordChar = '*';
             }
         }
+
+        // --- XÓA: Toàn bộ region #region Database Functions đã được chuyển sang BLL ---
     }
 }
 

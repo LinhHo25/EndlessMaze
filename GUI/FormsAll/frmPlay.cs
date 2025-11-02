@@ -46,16 +46,17 @@ namespace Main
             {
                 try
                 {
-                    // Gọi BLL tạo nhân vật
-                    bool success = _characterService.CreateCharacter(_currentUser.UserID, charName);
-                    if (success)
+                    // --- SỬA: Thay 'bool success' bằng 'string errorMessage' ---
+                    string errorMessage = _characterService.CreateCharacter(_currentUser.UserID, charName);
+
+                    if (string.IsNullOrEmpty(errorMessage)) // <-- SỬA: Kiểm tra lỗi
                     {
                         MessageBox.Show($"Tạo nhân vật '{charName}' thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                         // Tự động tải nhân vật vừa tạo
                         var newChar = _characterService.GetCharactersByUserId(_currentUser.UserID)
-                                                      .OrderByDescending(c => c.CharacterID) // Lấy nhân vật mới nhất
-                                                      .FirstOrDefault(c => c.CharacterName == charName);
+                                                    .OrderByDescending(c => c.CharacterID) // Lấy nhân vật mới nhất
+                                                    .FirstOrDefault(c => c.CharacterName == charName);
                         if (newChar != null)
                         {
                             // Bắt đầu game mới ở Map 1
@@ -64,12 +65,22 @@ namespace Main
                     }
                     else
                     {
-                        MessageBox.Show("Lỗi khi tạo nhân vật. (Có thể tên đã tồn tại hoặc lỗi DB)", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        // --- SỬA: Hiển thị lỗi chi tiết từ BLL ---
+                        MessageBox.Show("Lỗi khi tạo nhân vật:\n" + errorMessage, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Lỗi nghiêm trọng khi tạo nhân vật: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    // --- SỬA: Hiển thị INNER EXCEPTION (Lỗi Gốc) ---
+                    // Đây là thay đổi quan trọng nhất để chẩn đoán lỗi
+                    string detailedError = ex.Message;
+                    if (ex.InnerException != null)
+                    {
+                        // Đi sâu vào 2 lớp để lấy lỗi CSDL thực tế
+                        detailedError += "\n\nLỗi Gốc (Inner Exception):\n" + (ex.InnerException?.InnerException?.Message ?? ex.InnerException.Message);
+                    }
+                    MessageBox.Show("Lỗi nghiêm trọng khi tạo nhân vật:\n" + detailedError, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    // --- KẾT THÚC SỬA ---
                 }
             }
         }
@@ -127,14 +138,13 @@ namespace Main
                     return;
                 }
 
-                MessageBox.Show($"Bắt đầu game với: {characterDetails.CharacterName} (ID: {characterDetails.CharacterID}) tại Map {mapLevel}", "Bắt đầu!", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                // TODO: Mở form game chính (frmMaze) và truyền dữ liệu
-                // Ví dụ:
-                // frmMazeGame mainGame = new frmMazeGame(characterDetails, mapLevel);
-                // this.Hide();
-                // mainGame.ShowDialog(); 
-                // this.Show(); 
+                // --- SỬA: Mở frmMazeGame thay vì MessageBox ---
+                // (Giả sử bạn có frmMazeGame_v3.cs trong dự án)
+                frmMainGame mainGame = new frmMainGame(characterDetails, mapLevel);
+                this.Hide();
+                mainGame.ShowDialog();
+                // Sau khi game đóng (thua hoặc thoát), hiển thị lại form này
+                this.Show();
             }
             catch (Exception ex)
             {

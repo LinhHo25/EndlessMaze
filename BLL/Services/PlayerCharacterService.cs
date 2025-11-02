@@ -1,8 +1,9 @@
 ﻿using DAL.Models;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Data.Entity; // Cần cho .Include()
+using System.Data.Entity.Validation; // <-- THÊM: Để bắt lỗi chi tiết
+using System.Linq;
 
 namespace BLL.Services
 {
@@ -11,9 +12,7 @@ namespace BLL.Services
     {
         private ContextDB db = new ContextDB();
 
-        /// <summary>
-        /// Lấy tất cả các nhân vật của một người dùng.
-        /// </summary>
+        // ... (Hàm GetCharactersByUserId không đổi) ...
         public List<PlayerCharacters> GetCharactersByUserId(int userId)
         {
             try
@@ -29,9 +28,7 @@ namespace BLL.Services
             }
         }
 
-        /// <summary>
-        /// Lấy thông tin chi tiết của MỘT nhân vật, bao gồm cả túi đồ.
-        /// </summary>
+        // ... (Hàm GetCharacterDetails không đổi) ...
         public PlayerCharacters GetCharacterDetails(int characterId)
         {
             try
@@ -51,42 +48,99 @@ namespace BLL.Services
 
         /// <summary>
         /// Tạo nhân vật mới với chỉ số cơ bản và inventory mặc định.
+        /// --- SỬA: Trả về STRING (lỗi) thay vì BOOL ---
         /// </summary>
-        public bool CreateCharacter(int userId, string characterName)
+        public string CreateCharacter(int userId, string characterName)
         {
-            try
+            // --- SỬA: Thêm kiểm tra tên trùng lặp ---
+            if (db.PlayerCharacters.Any(c => c.CharacterName == characterName && c.UserID == userId))
             {
-                // 1. Tạo nhân vật
-                PlayerCharacters newChar = new PlayerCharacters
-                {
-                    UserID = userId,
-                    CharacterName = characterName,
-                    BaseHealth = 100, // Chỉ số mặc định
-                    BaseAttack = 10,  // Chỉ số mặc định
-                    BaseDefense = 5,   // Chỉ số mặc định
-                    BaseStamina = 50   // Chỉ số mặc định
-                };
-                db.PlayerCharacters.Add(newChar);
-                db.SaveChanges(); // Lưu để lấy được CharacterID
-
-                // 2. Tạo inventory mặc định cho nhân vật này
-                // (Giả sử ID 1 là "Tay không" hoặc "Dao găm", ID 1 là "Áo vải")
-                PlayerSessionInventory newInventory = new PlayerSessionInventory
-                {
-                    CharacterID = newChar.CharacterID,
-                    EquippedWeaponID = 1, // ID Vũ khí mặc định
-                    EquippedArmorID = 1,  // ID Giáp mặc định
-                    HealthPotionCount = 3 // 3 bình máu khởi điểm
-                };
-                db.PlayerSessionInventory.Add(newInventory);
-                db.SaveChanges();
-
-                return true;
+                return $"Tên nhân vật '{characterName}' đã tồn tại.";
             }
-            catch (Exception ex)
+
+            // --- SỬA LỖI (theo ảnh): Kiểm tra ràng buộc UNIQUE KEY trên UserID ---
+            // Lỗi "Violation of UNIQUE KEY constraint... The duplicate key value is (3)."
+            // cho thấy CSDL của bạn có 1 ràng buộc UNIQUE trên cột UserID,
+            // ngăn cản 1 user có nhiều hơn 1 nhân vật.
+            if (db.PlayerCharacters.Any(c => c.UserID == userId))
             {
-                Console.WriteLine(ex.Message);
-                return false;
+                return $"Lỗi Thiết kế CSDL: Người dùng (ID: {userId}) này đã có nhân vật. Ràng buộc UNIQUE KEY của CSDL ngăn cản việc tạo thêm nhân vật. (Bạn chỉ có thể có 1 nhân vật mỗi tài khoản).";
+            }
+            // --- KẾT THÚC SỬA LỖI ---
+
+
+            // (Sử dụng Transaction để đảm bảo an toàn)
+            using (var transaction = db.Database.BeginTransaction())
+            {
+                try
+                {
+                    // --- SỬA: Tìm hoặc Tạo Trang bị Mặc định ---
+                    // 1. Vũ khí
+                    Weapons defaultWeapon = db.Weapons.FirstOrDefault(w => w.WeaponName == "Tay không");
+                    if (defaultWeapon == null)
+                    {
+                        // --- SỬA LỖI: Đổi "F" thành "D" (do CSDL không chấp nhận "F") ---
+                        defaultWeapon = new Weapons { WeaponName = "Tay không", WeaponRank = "D", AttackBonus = 1 };
+                        db.Weapons.Add(defaultWeapon);
+                        db.SaveChanges(); // Lưu để lấy ID
+                    }
+
+                    // 2. Áo giáp
+                    Armors defaultArmor = db.Armors.FirstOrDefault(a => a.ArmorName == "Áo vải");
+                    if (defaultArmor == null)
+                    {
+                        // --- SỬA LỖI: Đổi "F" thành "D" (để đồng bộ) ---
+                        defaultArmor = new Armors { ArmorName = "Áo vải", ArmorRank = "D", DefensePoints = 1 };
+                        db.Armors.Add(defaultArmor);
+                        db.SaveChanges(); // Lưu để lấy ID
+                    }
+                    // --- KẾT THÚC SỬA ---
+
+
+                    // 1. Tạo nhân vật
+                    PlayerCharacters newChar = new PlayerCharacters
+                    {
+                        UserID = userId,
+                        CharacterName = characterName,
+                        BaseHealth = 100, // Chỉ số mặc định
+                        BaseAttack = 10,  // Chỉ số mặc định
+                        BaseDefense = 5,    // Chỉ số mặc định
+                        BaseStamina = 50    // Chỉ số mặc định
+                    };
+                    db.PlayerCharacters.Add(newChar);
+                    db.SaveChanges(); // Lưu để lấy được CharacterID
+
+                    // 2. Tạo inventory mặc định cho nhân vật này
+                    PlayerSessionInventory newInventory = new PlayerSessionInventory
+                    {
+                        CharacterID = newChar.CharacterID,
+                        // --- SỬA: Dùng ID động thay vì '1' ---
+                        EquippedWeaponID = defaultWeapon.WeaponID,
+                        EquippedArmorID = defaultArmor.ArmorID,
+                        HealthPotionCount = 3 // 3 bình máu khởi điểm
+                    };
+                    db.PlayerSessionInventory.Add(newInventory);
+                    db.SaveChanges();
+
+                    // Mọi thứ thành công
+                    transaction.Commit();
+                    return null; // <-- SỬA: Trả về NULL (không có lỗi)
+                }
+                catch (DbEntityValidationException dbEx) // <-- THÊM: Bắt lỗi CSDL chi tiết
+                {
+                    transaction.Rollback();
+                    var errorMessages = dbEx.EntityValidationErrors
+                            .SelectMany(x => x.ValidationErrors)
+                            .Select(x => x.ErrorMessage);
+                    return "Lỗi CSDL: " + string.Join("; ", errorMessages);
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    // --- SỬA: Trả về lỗi GỐC (InnerException) ---
+                    string innerError = ex.InnerException?.InnerException?.Message ?? ex.InnerException?.Message ?? ex.Message;
+                    return "Lỗi Hệ thống: " + innerError;
+                }
             }
         }
 
@@ -102,8 +156,8 @@ namespace BLL.Services
 
                 // Cũng nên xóa inventory liên quan (nếu CSDL không tự xóa)
                 var inventory = db.PlayerSessionInventory
-                                  .Where(inv => inv.CharacterID == characterId)
-                                  .ToList();
+                                    .Where(inv => inv.CharacterID == characterId)
+                                    .ToList();
 
                 db.PlayerSessionInventory.RemoveRange(inventory);
                 db.PlayerCharacters.Remove(character);
@@ -119,3 +173,4 @@ namespace BLL.Services
         }
     }
 }
+

@@ -13,6 +13,10 @@ namespace GUI.GameEntities
     {
         private int castCooldown = 0;
         private int castCooldownDuration = 333;
+        // --- THÊM: Biến cho A* Pathfinding ---
+        private List<Point> _currentPathTiles = new List<Point>();
+        private int _pathUpdateTimer = 0; // Đếm ngược để làm mới đường đi
+        private Point _lastPlayerTile = Point.Empty; // Vị trí tile cuối cùng của người chơi
 
         // ... [Nội dung Boss không đổi] ...
         public Boss(float startX, float startY) : base(startX, startY)
@@ -177,7 +181,7 @@ namespace GUI.GameEntities
             {
                 State = MonsterState.Patrol;
                 // --- SỬA LỖI: Truyền 'game' vào ---
-                SetNewPatrolTarget(game);
+                _currentPathTiles.Clear();
             }
             else if (State == MonsterState.Idle)
             {
@@ -187,28 +191,69 @@ namespace GUI.GameEntities
                     patrolTimer = 0;
                     State = MonsterState.Patrol;
                     // --- SỬA LỖI: Truyền 'game' vào ---
-                    SetNewPatrolTarget(game);
+                    _currentPathTiles.Clear();
                 }
             }
             else if (State == MonsterState.Patrol)
             {
-                MoveTowards(game, patrolTarget, patrolSpeed);
+                //MoveTowards(game, patrolTarget, patrolSpeed);
                 if (GetDistanceToPoint(patrolTarget) < 10 * 10)
                 {
                     State = MonsterState.Idle;
                 }
             }
 
-            if (State == MonsterState.Patrol)
+            //if (State == MonsterState.Patrol)
+            //{
+            //    //MoveTowards(game, patrolTarget, patrolSpeed);
+            //}
+            //else if (State == MonsterState.Chase)
+            //{
+            //    // Di chuyển về Player Center (playerX + 12.5, playerY + 12.5)
+            //    MoveTowards(game, new PointF(playerX + 12.5f, playerY + 12.5f), speed);
+            //}
+            // --- THÊM: LOGIC A* PATHFINDING & MOVEMENT (CHO BOSS) ---
+            if (_pathUpdateTimer > 0) _pathUpdateTimer--;
+
+            // 1. Lấy đường đi mới nếu cần
+            if (State == MonsterState.Chase)
             {
-                MoveTowards(game, patrolTarget, patrolSpeed);
+                Point myTile = game.WorldToTile(new PointF(X + Width / 2, Y + Height / 2));
+                Point playerTile = game.WorldToTile(new PointF(playerX + 12.5f, playerY + 12.5f));
+
+                if (_pathUpdateTimer <= 0 || playerTile != _lastPlayerTile)
+                {
+                    _currentPathTiles = game.FindPath(myTile, playerTile);
+                    _lastPlayerTile = playerTile;
+                    _pathUpdateTimer = 20; // Boss tìm đường chậm hơn một chút
+                }
             }
-            else if (State == MonsterState.Chase)
+            else if (State == MonsterState.Patrol)
             {
-                // Di chuyển về Player Center (playerX + 12.5, playerY + 12.5)
-                MoveTowards(game, new PointF(playerX + 12.5f, playerY + 12.5f), speed);
+                if (_currentPathTiles.Count == 0)
+                {
+                    // Hàm SetNewPatrolTarget của Monster sẽ tự động tìm đường
+                    SetNewPatrolTarget(game);
+                }
+            }
+            else
+            {
+                // Đứng yên, Tấn công, Gồng chiêu... -> Xóa đường đi
+                _currentPathTiles.Clear();
             }
 
+            // 2. Di chuyển theo đường đi
+            if (_currentPathTiles.Count > 0)
+            {
+                PointF worldTarget = game.TileToWorld(_currentPathTiles[0]);
+                float currentSpeed = (State == MonsterState.Chase) ? speed : patrolSpeed;
+                MoveTowards(game, worldTarget, currentSpeed);
+
+                if (GetDistanceToPoint(worldTarget) < (frmMainGame.TILE_SIZE / 2f) * (frmMainGame.TILE_SIZE / 2f))
+                {
+                    _currentPathTiles.RemoveAt(0);
+                }
+            }
             this.facingDirection = "down";
         }
 

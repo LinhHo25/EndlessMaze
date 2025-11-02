@@ -42,7 +42,10 @@ namespace GUI.GameEntities
         // --- THAY ĐỔI: patrolRange, chaseRange được thiết lập bởi lớp con (ví dụ Orc) hoặc mặc định ở đây ---
         protected float patrolRange = 10 * frmMainGame.TILE_SIZE; // 10 ô logic (mặc định)
         protected float chaseRange = 20 * frmMainGame.TILE_SIZE; // 20 ô logic (mặc định)
-                                                                 // --- THAY ĐỔI: Xóa perceptionRange (vì đã sửa logic để dùng aggroRange) ---
+        // --- THÊM: Biến cho A* Pathfinding ---
+        private List<Point> _currentPathTiles = new List<Point>();
+        private int _pathUpdateTimer = 0; // Đếm ngược để làm mới đường đi
+        private Point _lastPlayerTile = Point.Empty; // Vị trí tile cuối cùng của người chơi
 
         public Monster(float startX, float startY)
         {
@@ -143,8 +146,8 @@ namespace GUI.GameEntities
                 // A2. Nếu trong tầm phát hiện (10 ô) hoặc đang truy đuổi
                 else if (distanceSq <= aggroRange * aggroRange || State == MonsterState.Chase)
                 {
+                    //MoveTowards(game, patrolTarget, patrolSpeed);
                     State = MonsterState.Chase;
-                    MoveTowards(game, new PointF(playerCenterX, playerCenterY), speed);
                 }
                 // A3. Nếu thấy người chơi nhưng ngoài tầm 10 ô và chưa truy đuổi
                 else
@@ -176,12 +179,65 @@ namespace GUI.GameEntities
             }
             else if (State == MonsterState.Patrol)
             {
-                MoveTowards(game, patrolTarget, patrolSpeed);
+                //MoveTowards(game, patrolTarget, patrolSpeed);
 
                 // Nếu đi gần đến mục tiêu
                 if (GetDistanceToPoint(patrolTarget) < (frmMainGame.TILE_SIZE * frmMainGame.TILE_SIZE))
                 {
                     State = MonsterState.Idle; // Đứng yên chờ
+                }
+            }
+            // --- THÊM: LOGIC A* PATHFINDING & MOVEMENT ---
+            if (_pathUpdateTimer > 0) _pathUpdateTimer--;
+
+            // 1. Lấy đường đi mới nếu cần
+            if (State == MonsterState.Chase)
+            {
+                // Lấy vị trí tile của quái và người chơi
+                Point myTile = game.WorldToTile(new PointF(X + Width / 2, Y + Height / 2));
+                Point playerTile = game.WorldToTile(new PointF(playerCenterX, playerCenterY));
+
+                // Cần đường đi mới NẾU:
+                // 1. Hết thời gian chờ (tránh việc 50 con quái tìm đường cùng lúc)
+                // 2. Hoặc người chơi đã di chuyển sang ô tile khác
+                if (_pathUpdateTimer <= 0 || playerTile != _lastPlayerTile)
+                {
+                    _currentPathTiles = game.FindPath(myTile, playerTile);
+                    _lastPlayerTile = playerTile; // Lưu vị trí cuối
+                    _pathUpdateTimer = 15; // Chờ 15 frame (khoảng 0.5s)
+                }
+            }
+            else if (State == MonsterState.Patrol)
+            {
+                // Nếu đang tuần tra và không có đường đi (hoặc đã đi hết) -> Tìm đường mới
+                if (_currentPathTiles.Count == 0)
+                {
+                    SetNewPatrolTarget(game);
+                }
+            }
+            else
+            {
+                // Nếu Đứng yên, Tấn công, Bị thương... -> Xóa đường đi
+                _currentPathTiles.Clear();
+            }
+
+            // 2. Di chuyển theo đường đi
+            if (_currentPathTiles.Count > 0)
+            {
+                // Lấy node tiếp theo (đây là TILE)
+                Point nextTile = _currentPathTiles[0];
+                // Chuyển sang tọa độ Pixel (TÂM của TILE)
+                PointF worldTarget = game.TileToWorld(nextTile);
+
+                // Di chuyển đến TÂM của node đó
+                float currentSpeed = (State == MonsterState.Chase) ? speed : patrolSpeed;
+                MoveTowards(game, worldTarget, currentSpeed); // <-- Dùng lại hàm MoveTowards cũ
+
+                // Kiểm tra xem đã đến gần node đó chưa
+                if (GetDistanceToPoint(worldTarget) < (frmMainGame.TILE_SIZE / 2f) * (frmMainGame.TILE_SIZE / 2f))
+                {
+                    // Đến rồi -> Xóa node này khỏi danh sách và đi node tiếp theo
+                    _currentPathTiles.RemoveAt(0);
                 }
             }
         }
@@ -265,43 +321,13 @@ namespace GUI.GameEntities
         protected void SetNewPatrolTarget(frmMainGame game)
         {
             if (game == null) return;
-
-            // Thử tìm 5 lần
-            for (int i = 0; i < 5; i++)
-            {
-                // 1. Tạo vị trí ngẫu nhiên trong tầm (patrolRange) so với mốc
-                // patrolRange đã được Orc.cs ghi đè thành 5 ô (150px)
-                float randomAngle = (float)(rand.NextDouble() * 2 * Math.PI);
-                float randomDist = (float)(rand.NextDouble() * patrolRange);
-
-                float targetX = patrolOrigin.X + (float)Math.Cos(randomAngle) * randomDist;
-                float targetY = patrolOrigin.Y + (float)Math.Sin(randomAngle) * randomDist;
-
-                // 2. Kiểm tra xem điểm đó có hợp lệ (không phải tường) không
-                RectangleF testHitbox = new RectangleF(targetX, targetY, Width, Height);
-                RectangleF scaledTestHitbox = new RectangleF(
-                    testHitbox.X * frmMainGame.RENDER_SCALE,
-                    testHitbox.Y * frmMainGame.RENDER_SCALE,
-                    testHitbox.Width * frmMainGame.RENDER_SCALE,
-                    testHitbox.Height * frmMainGame.RENDER_SCALE
-                );
-
-                if (!game.IsCollidingWithWallScaled(scaledTestHitbox))
-                {
-                    // Nếu hợp lệ, đặt làm mục tiêu và thoát
-                    patrolTarget = new PointF(targetX, targetY);
-                    return;
-                }
-
-                // --- SỬA LỖI ĐỨNG YÊN ---
-                // Nếu thử thất bại, VẪN LƯU LẠI mục tiêu này làm dự phòng
-                // (Để tránh lỗi quay về mốc origin)
-                patrolTarget = new PointF(targetX, targetY);
-                // --- KẾT THÚC SỬA ---
-            }
-
-            // Nếu thử 5 lần thất bại, nó sẽ dùng mục tiêu dự phòng cuối cùng
-            // (Đã xóa dòng: patrolTarget = patrolOrigin;)
+            // A* Pathfinding:
+            // 1. Lấy vị trí tile hiện tại
+            Point myTile = game.WorldToTile(new PointF(X + Width / 2, Y + Height / 2));
+            // 2. Tìm 1 tile ngẫu nhiên có thể đi được
+            Point randomTile = game.FindRandomWalkableTile();
+            // 3. Tìm đường đi đến đó
+            _currentPathTiles = game.FindPath(myTile, randomTile);
         }
 
         public virtual void TakeDamage(int damage)

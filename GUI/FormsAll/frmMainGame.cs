@@ -1911,7 +1911,159 @@ namespace Main
             _autoPilotTarget = new PointF(targetX, targetY);
         }
 
+        #region A* Pathfinding Engine
 
+        /// <summary>
+        /// Một class helper cho thuật toán A*
+        /// </summary>
+        private class PathNode
+        {
+            public Point Position { get; set; } // Vị trí Tile (X, Y)
+            public int G { get; set; } // Chi phí từ điểm bắt đầu
+            public int H { get; set; } // Chi phí heuristic (ước tính) đến điểm cuối
+            public int F => G + H; // Tổng chi phí
+            public PathNode Parent { get; set; }
+        }
+
+        /// <summary>
+        /// Chuyển đổi tọa độ Pixel (World) sang tọa độ Tile (Grid)
+        /// </summary>
+        public Point WorldToTile(PointF worldPosition)
+        {
+            int tileX = (int)(worldPosition.X / TILE_SIZE);
+            int tileY = (int)(worldPosition.Y / TILE_SIZE);
+            return new Point(tileX, tileY);
+        }
+
+        /// <summary>
+        /// Chuyển đổi tọa độ Tile (Grid) sang tọa độ Pixel (World) - lấy TÂM của ô
+        /// </summary>
+        public PointF TileToWorld(Point tilePosition)
+        {
+            float worldX = (tilePosition.X * TILE_SIZE) + (TILE_SIZE / 2f);
+            float worldY = (tilePosition.Y * TILE_SIZE) + (TILE_SIZE / 2f);
+            return new PointF(worldX, worldY);
+        }
+
+        /// <summary>
+        /// Tính heuristic (Manhattan distance)
+        /// </summary>
+        private int GetHeuristic(Point a, Point b)
+        {
+            return Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
+        }
+
+        /// <summary>
+        /// Tìm một ô ngẫu nhiên có thể đi được trong mê cung
+        /// </summary>
+        public Point FindRandomWalkableTile()
+        {
+            int x, y;
+            do
+            {
+                x = _lootRandom.Next(1, MAZE_LOGIC_WIDTH - 1);
+                y = _lootRandom.Next(1, MAZE_LOGIC_HEIGHT - 1);
+            }
+            while (_mazeGrid[y, x] == (int)GameObjectType.Wall); // Lặp lại nếu là tường
+            return new Point(x, y);
+        }
+
+        /// <summary>
+        /// Thuật toán A* (A-Star) tìm đường đi
+        /// </summary>
+        /// <param name="startTile">Tile bắt đầu (quái vật)</param>
+        /// <param name="endTile">Tile kết thúc (người chơi)</param>
+        /// <returns>Một danh sách các Tile (Point) để đi theo</returns>
+        public List<Point> FindPath(Point startTile, Point endTile)
+        {
+            List<Point> path = new List<Point>();
+            List<PathNode> openList = new List<PathNode>();
+            List<PathNode> closedList = new List<PathNode>();
+
+            PathNode startNode = new PathNode
+            {
+                Position = startTile,
+                G = 0,
+                H = GetHeuristic(startTile, endTile)
+            };
+            openList.Add(startNode);
+
+            while (openList.Count > 0)
+            {
+                // Tìm node có F thấp nhất trong openList
+                PathNode currentNode = openList.OrderBy(n => n.F).First();
+
+                // Nếu là node đích -> Xong
+                if (currentNode.Position == endTile)
+                {
+                    PathNode temp = currentNode;
+                    while (temp != null)
+                    {
+                        path.Add(temp.Position);
+                        temp = temp.Parent;
+                    }
+                    path.Reverse();
+                    return path; // Trả về đường đi (đã đảo ngược)
+                }
+
+                // Chuyển node hiện tại sang closedList
+                openList.Remove(currentNode);
+                closedList.Add(currentNode);
+
+                // Kiểm tra 4 ô xung quanh (không đi chéo)
+                Point[] neighbors = new Point[]
+                {
+                    new Point(currentNode.Position.X, currentNode.Position.Y + 1), // Dưới
+                    new Point(currentNode.Position.X, currentNode.Position.Y - 1), // Trên
+                    new Point(currentNode.Position.X + 1, currentNode.Position.Y), // Phải
+                    new Point(currentNode.Position.X - 1, currentNode.Position.Y)  // Trái
+                };
+
+                foreach (var neighborPos in neighbors)
+                {
+                    // Kiểm tra 1: Nằm trong biên
+                    if (neighborPos.X < 0 || neighborPos.X >= MAZE_LOGIC_WIDTH ||
+                        neighborPos.Y < 0 || neighborPos.Y >= MAZE_LOGIC_HEIGHT)
+                        continue;
+
+                    // Kiểm tra 2: Có phải là tường không
+                    if (_mazeGrid[neighborPos.Y, neighborPos.X] == (int)GameObjectType.Wall)
+                        continue;
+
+                    // Kiểm tra 3: Đã có trong closedList chưa
+                    if (closedList.Any(n => n.Position == neighborPos))
+                        continue;
+
+                    // Tính G mới
+                    int newG = currentNode.G + 1;
+
+                    // Kiểm tra 4: Đã có trong openList chưa
+                    PathNode neighborNode = openList.FirstOrDefault(n => n.Position == neighborPos);
+                    if (neighborNode == null)
+                    {
+                        // Chưa có -> Thêm vào openList
+                        neighborNode = new PathNode
+                        {
+                            Position = neighborPos,
+                            G = newG,
+                            H = GetHeuristic(neighborPos, endTile),
+                            Parent = currentNode
+                        };
+                        openList.Add(neighborNode);
+                    }
+                    else if (newG < neighborNode.G)
+                    {
+                        // Đã có nhưng đường này tốt hơn -> Cập nhật G và Parent
+                        neighborNode.G = newG;
+                        neighborNode.Parent = currentNode;
+                    }
+                }
+            }
+
+            return path; // Không tìm thấy đường
+        }
+
+        #endregion
     }
 }
 

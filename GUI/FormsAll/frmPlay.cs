@@ -162,6 +162,16 @@ namespace Main
                 // Nếu người chơi thắng (DialogResult.OK được gửi từ HandleMapExit)
                 // Tự động bắt đầu map tiếp theo bằng cách gọi đệ quy chính hàm này
                 StartGame(characterId, mapLevel + 1);
+                // --- THÊM: RESET TRANG BỊ VỀ MẶC ĐỊNH ---
+                try
+                {
+                    _characterService.ResetCharacterToDefault(characterId);
+                    MessageBox.Show("Đã qua màn! Trang bị và thuốc đã được reset về mặc định.", "Qua Màn");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Lỗi khi reset trang bị: " + ex.Message);
+                }
             }
             else
             {

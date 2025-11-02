@@ -78,7 +78,23 @@ namespace Main
                 potionItem.Tag = 1; // Tag là PotionID
                 lvInventory.Items.Add(potionItem);
 
-                // (Bạn có thể thêm các vật phẩm khác ở đây)
+                // --- THÊM: Hiển thị Vũ khí đang trang bị ---
+                if (_inventory.Weapons != null)
+                {
+                    ListViewItem weaponItem = new ListViewItem(_inventory.Weapons.WeaponName);
+                    weaponItem.SubItems.Add("1 (Trang bị)");
+                    weaponItem.Tag = _inventory.Weapons; // Tag là đối tượng Weapons
+                    lvInventory.Items.Add(weaponItem);
+                }
+
+                // --- THÊM: Hiển thị Áo giáp đang trang bị ---
+                if (_inventory.Armors != null)
+                {
+                    ListViewItem armorItem = new ListViewItem(_inventory.Armors.ArmorName);
+                    armorItem.SubItems.Add("1 (Trang bị)");
+                    armorItem.Tag = _inventory.Armors; // Tag là đối tượng Armors
+                    lvInventory.Items.Add(armorItem);
+                }
             }
 
             // Tự động chọn item đầu tiên nếu có
@@ -109,10 +125,13 @@ namespace Main
                 return;
             }
 
-            // Lấy PotionID từ Tag
-            int potionId = (int)lvInventory.SelectedItems[0].Tag;
+            // --- SỬA 1: Khai báo 'selectedTag' Ở ĐÂY ---
+            var selectedTag = lvInventory.SelectedItems[0].Tag;
 
-            if (potionId == 1) // Nếu là bình máu
+            // --- XÓA: Dòng 'int potionId = ...' (vì nó thừa) ---
+
+            // --- SỬA 2: 'if' khối 1 ---
+            if (selectedTag is int potionId && potionId == 1) // Nếu là bình máu 
             {
                 if (_inventory.HealthPotionCount <= 0)
                 {
@@ -120,30 +139,29 @@ namespace Main
                     return;
                 }
 
-                // --- SỬ DỤNG BLL ---
-                // (Lưu ý: Hàm UseHealthPotion trong BLL cần được kiểm tra
-                // xem nó có tự động SaveChanges() hay không)
                 int newHealth = _gameSessionService.UseHealthPotion(_characterId, _currentHealth);
 
                 if (newHealth == _currentHealth)
                 {
-                    // Không dùng được (ví dụ: máu đã đầy)
                     MessageBox.Show("Máu đã đầy.", "Không thể dùng");
                 }
                 else
                 {
-                    // Dùng thành công
-                    _currentHealth = newHealth; // Cập nhật máu hiện tại (cho lần dùng tiếp)
-                    NewHealth = newHealth;      // Cập nhật máu mới (cho frmMenu đọc)
-
-                    // Cập nhật số lượng trong DB (Hàm BLL đã làm)
-                    // Cập nhật số lượng local (để refresh UI)
+                    // --- SỬA: Cập nhật máu hiện tại và máu mới ---
+                    _currentHealth = newHealth;
+                    NewHealth = newHealth;
+                    // ------------------------------------------
                     _inventory.HealthPotionCount--;
-
-                    // Tải lại UI
                     LoadInventoryData();
                 }
+            } // <-- SỬA 3: Đóng khối 'if' tại đây
+
+            // --- SỬA 3: 'else if' khối 2 (nằm BÊN NGOÀI 'if' trên) ---
+            else if (selectedTag is Weapons || selectedTag is Armors)
+            {
+                MessageBox.Show("Đây là trang bị đang mặc. Bạn có thể xem trong menu 'EQUIPMENT'.", "Thông báo");
             }
         }
+        
     }
 }

@@ -171,6 +171,43 @@ namespace BLL.Services
                 return false;
             }
         }
+
+        // --- THÊM HÀM MỚI: RESET TRANG BỊ ---
+        /// <summary>
+        /// Reset trang bị của nhân vật về mặc định (Giáp D, Kiếm D, 3 Thuốc)
+        /// </summary>
+        public bool ResetCharacterToDefault(int characterId)
+        {
+            try
+            {
+                var inventory = db.PlayerSessionInventory.FirstOrDefault(i => i.CharacterID == characterId);
+                if (inventory == null) return false;
+
+                // 1. Tìm trang bị Rank D
+                // (Giả sử tên mặc định là "Tay không" và "Áo vải" như trong CreateCharacter)
+                var defaultWeapon = db.Weapons.FirstOrDefault(w => w.WeaponName == "Tay không" && w.WeaponRank == "D");
+                var defaultArmor = db.Armors.FirstOrDefault(a => a.ArmorName == "Áo vải" && a.ArmorRank == "D");
+
+                // Nếu không tìm thấy (lỗi), dùng ID=1 làm dự phòng
+                int weaponId = defaultWeapon?.WeaponID ?? 1;
+                int armorId = defaultArmor?.ArmorID ?? 1;
+
+                // 2. Cập nhật Inventory
+                inventory.EquippedWeaponID = weaponId;
+                inventory.EquippedArmorID = armorId;
+                inventory.HealthPotionCount = 3; // Số thuốc mặc định
+
+                // 3. Lưu
+                db.Entry(inventory).State = EntityState.Modified;
+                db.SaveChanges();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Lỗi khi reset trang bị: " + ex.Message);
+                return false;
+            }
+        }
     }
 }
 

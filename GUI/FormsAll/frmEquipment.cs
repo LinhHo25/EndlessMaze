@@ -1,8 +1,10 @@
 ﻿using BLL.Services; // <-- Sử dụng BLL
 using DAL.Models; // <-- Sử dụng Models
 using System;
+using System.Linq;
 using System.Drawing;
 using System.Drawing.Text;
+using System.IO;
 using System.Windows.Forms;
 
 namespace Main // <-- SỬA: Đổi namespace về 'Main' cho nhất quán
@@ -67,7 +69,46 @@ namespace Main // <-- SỬA: Đổi namespace về 'Main' cho nhất quán
             LoadEquipmentData();
             // ---------------------------------------------
         }
+        // --- THÊM: HÀM TẢI ẢNH (Tương tự GroundItem.cs) ---
+        private Image LoadEquipmentImage(object itemData)
+        {
+            string path = "";
+            try
+            {
+                if (itemData is Weapons w)
+                {
+                    string folder = Path.Combine("ImgSource", "Item", "Weapon", w.WeaponRank);
+                    if (Directory.Exists(folder))
+                    {
+                        path = Directory.GetFiles(folder, "*.png").FirstOrDefault();
+                    }
+                }
+                else if (itemData is Armors a)
+                {
+                    string fileName = "";
+                    if (a.ArmorRank == "A") fileName = "vwsmmfyu747f1_0.png";
+                    else if (a.ArmorRank == "B") fileName = "vwsmmfyu747f1_1.png";
+                    else if (a.ArmorRank == "C") fileName = "vwsmmfyu747f1_2.png";
+                    else fileName = "vwsmmfyu747f1_3.png"; // Rank D
 
+                    path = Path.Combine("ImgSource", "Armors", fileName);
+                }
+
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                {
+                    byte[] imageData = File.ReadAllBytes(path);
+                    using (MemoryStream ms = new MemoryStream(imageData))
+                    {
+                        return Image.FromStream(ms);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Không thể tải ảnh Equipment: " + ex.Message);
+            }
+            return null; // Trả về null nếu lỗi
+        }
         // --- HÀM MỚI: Tải dữ liệu trang bị ---
         private void LoadEquipmentData()
         {
@@ -87,7 +128,7 @@ namespace Main // <-- SỬA: Đổi namespace về 'Main' cho nhất quán
                 {
                     lblWeapon.Text = $"Vũ khí: {weapon.WeaponName} (Rank {weapon.WeaponRank})";
                     // TODO: Gán hình ảnh cho picWeapon (nếu có)
-                    // picWeapon.Image = ... 
+                    picWeapon.Image = LoadEquipmentImage(weapon);
                 }
                 else
                 {
@@ -100,6 +141,7 @@ namespace Main // <-- SỬA: Đổi namespace về 'Main' cho nhất quán
                 {
                     lblArmor.Text = $"Áo giáp: {armor.ArmorName} (Rank {armor.ArmorRank})";
                     // TODO: Gán hình ảnh cho picArmor (nếu có)
+                    picArmor.Image = LoadEquipmentImage(armor);
                 }
                 else
                 {
@@ -123,6 +165,7 @@ namespace Main // <-- SỬA: Đổi namespace về 'Main' cho nhất quán
         {
             pic.BackColor = Color.FromArgb(220, 198, 158); // Màu giấy da tối hơn
             pic.BorderStyle = BorderStyle.FixedSingle;
+            pic.SizeMode = PictureBoxSizeMode.Zoom;
         }
 
         private void ApplyCloseButtonStyles(Button btn)

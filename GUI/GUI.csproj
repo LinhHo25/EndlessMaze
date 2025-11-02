@@ -201,10 +201,21 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="ImgSource\Armors\vwsmmfyu747f1_0.png" />
-    <Content Include="ImgSource\Armors\vwsmmfyu747f1_1.png" />
-    <Content Include="ImgSource\Armors\vwsmmfyu747f1_2.png" />
-    <Content Include="ImgSource\Armors\vwsmmfyu747f1_3.png" />
+    <Content Include="ImgSource\Armors\vwsmmfyu747f1_0.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Armors\vwsmmfyu747f1_1.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Armors\vwsmmfyu747f1_2.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Armors\vwsmmfyu747f1_3.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Avt\AVT3.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="ImgSource\Block\default\Floor\brick_gray_0.png" />
     <Content Include="ImgSource\Block\default\Floor\brick_gray_1.png" />
     <Content Include="ImgSource\Block\default\Floor\brick_gray_2.png" />
@@ -2507,6 +2518,33 @@
     <Content Include="ImgSource\Structure\Water_Style\Objects_separately_2\64\Yellow-white-gray_shell1_shadow1.png" />
     <Content Include="ImgSource\Structure\Water_Style\Objects_separately_2\64\Yellow-white-gray_shell1_shadow2.png" />
     <Content Include="ImgSource\Structure\Water_Style\Objects_separately_2\64\Yellow-white-gray_shell1_shadow3.png" />
+    <Content Include="sound effect\compressed\Background sound\Tiếng nhạc nền chính.mp3" />
+    <Content Include="sound effect\compressed\Background sound\tiếng nhạc nền map lửa.mp3" />
+    <Content Include="sound effect\compressed\Background sound\Tiếng nền map lửa.mp3" />
+    <Content Include="sound effect\compressed\Background sound\Tiếng nền map mưa.mp3" />
+    <Content Include="sound effect\compressed\Background sound\Tiếng nền map đầm lầy.mp3" />
+    <Content Include="sound effect\compressed\Background sound\Tiếng sang map mới.mp3" />
+    <Content Include="sound effect\compressed\Nhân Vật\Tieng di chuyen o tren da.mp3" />
+    <Content Include="sound effect\compressed\Nhân Vật\tiếng critical.mp3" />
+    <Content Include="sound effect\compressed\Nhân Vật\tiếng dash.mp3" />
+    <Content Include="sound effect\compressed\Nhân Vật\tiếng lên level.mp3" />
+    <Content Include="sound effect\compressed\Nhân Vật\tiếng vung búa, rìu.mp3" />
+    <Content Include="sound effect\compressed\Nhân Vật\Tiếng vung kiếm hụt.mp3" />
+    <Content Include="sound effect\compressed\Nhân Vật\tiếng vung kiếm.mp3" />
+    <Content Include="sound effect\compressed\Quái Vật\tiếng boss chết.mp3" />
+    <Content Include="sound effect\compressed\Quái Vật\tiếng boss thở.mp3" />
+    <Content Include="sound effect\compressed\Quái Vật\tiếng báo hiệu của boss.mp3" />
+    <Content Include="sound effect\compressed\Quái Vật\TIếng giáp kêu.mp3" />
+    <Content Include="sound effect\compressed\Quái Vật\Tiếng ork bị thương.mp3" />
+    <Content Include="sound effect\compressed\Quái Vật\tiếng ork chết.mp3" />
+    <Content Include="sound effect\compressed\Quái Vật\Tiếng ork khi thấy người.mp3" />
+    <Content Include="sound effect\compressed\Quái Vật\tiếng slime tấn công.mp3" />
+    <Content Include="sound effect\compressed\Quái Vật\Tiếng Slime.mp3" />
+    <Content Include="sound effect\compressed\Vật Phẩm\tiếng giáp rớt.mp3" />
+    <Content Include="sound effect\compressed\Vật Phẩm\tiếng mở rương gỗ.mp3" />
+    <Content Include="sound effect\compressed\Vật Phẩm\Tiếng mở rương ra đồ ngon.mp3" />
+    <Content Include="sound effect\compressed\Vật Phẩm\Tiếng rơi vật phẩm Legendary.mp3" />
+    <Content Include="sound effect\compressed\Vật Phẩm\tiếng tiền rơi.mp3" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BLL\BLL.csproj">
@@ -9186,4 +9224,5 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+  <ItemGroup />
 </Project>

@@ -48,7 +48,7 @@ namespace GUI.GameEntities
             runAnim.LoadImages(Path.Combine(runRoot, "Back"), Path.Combine(runRoot, "Front"), Path.Combine(runRoot, "Left"), Path.Combine(runRoot, "Right"));
 
             string attackRoot = Path.Combine(slimeRoot, "Atk");
-            attackAnim = new AnimationActivity(5) { IsLooping = false };
+            attackAnim = new AnimationActivity(10) { IsLooping = false };
             attackAnim.LoadImages(Path.Combine(attackRoot, "Back"), Path.Combine(attackRoot, "Front"), Path.Combine(attackRoot, "Left"), Path.Combine(attackRoot, "Right"));
 
             string hurtRoot = Path.Combine(slimeRoot, "Hurt");

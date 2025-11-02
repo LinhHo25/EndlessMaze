@@ -1,7 +1,11 @@
-﻿using System;
+﻿using BLL.Services;
+using DAL.Models;
+using GUI.GameEntities; // <-- Thêm using để tìm thấy Monster, Boss, SpellEffect...
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics; // <-- THÊM: Để theo dõi thời gian chơi
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -10,11 +14,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using BLL.Services;
-using DAL.Models;
 using static BLL.Services.GameSessionService;
-using GUI.GameEntities; // <-- Thêm using để tìm thấy Monster, Boss, SpellEffect...
-using System.Diagnostics; // <-- THÊM: Để theo dõi thời gian chơi
 
 namespace Main
 {
@@ -256,7 +256,7 @@ namespace Main
                 runAttackActivity.LoadImages(Path.Combine(runAtkRoot, "Back"), Path.Combine(runAtkRoot, "Front"), Path.Combine(runAtkRoot, "Left"), Path.Combine(runAtkRoot, "Right"));
 
                 string hurtRoot = Path.Combine(playerRoot, "Hurt");
-                hurtActivity = new AnimationActivity(5) { IsLooping = false };
+                hurtActivity = new AnimationActivity(2) { IsLooping = false };
                 hurtActivity.LoadImages(Path.Combine(hurtRoot, "Back"), Path.Combine(hurtRoot, "Front"), Path.Combine(hurtRoot, "Left"), Path.Combine(hurtRoot, "Right"));
 
                 string deathRoot = Path.Combine(playerRoot, "Death");
@@ -564,8 +564,10 @@ namespace Main
             if (e.KeyCode == Keys.S) goDown = true;
             if (e.KeyCode == Keys.A) goLeft = true;
             if (e.KeyCode == Keys.D) goRight = true;
+            // --- SỬA: Đảm bảo 'ControlKey' (Ctrl) là 'isRunning' ---
             if (e.KeyCode == Keys.ControlKey) isRunning = true;
 
+            // --- SỬA: Đảm bảo 'ShiftKey' (Shift) là 'isDashing' ---
             if (e.KeyCode == Keys.ShiftKey && !isDashing && dashCooldown == 0 && _currentStamina > 10)
             {
                 if (_currentStamina >= 50)
@@ -711,7 +713,7 @@ namespace Main
                 lootEffects.Add(new LootEffect(lootX, lootY, chest.Width, chest.Height, potionIcon));
             }
 
-            _currentHealth = Math.Min(_calculatedStats.TotalHealth, _currentHealth + potionCount * 50);
+            _inventory.HealthPotionCount += potionCount;
         }
 
         // --- VÒNG LẶP GAME CHÍNH ---
@@ -727,7 +729,31 @@ namespace Main
             foreach (var monster in monsters.ToList())
             {
                 monster.Update(this, playerX, playerY, spellEffects);
+                // --- THÊM: XỬ LÝ SÁT THƯƠNG KHI VA CHẠM (BODY DAMAGE) ---
+                RectangleF playerHitbox = new RectangleF(playerX, playerY, playerWidth, playerHeight);
 
+                // Chỉ gây sát thương va chạm nếu:
+                // 1. Quái vật không thân thiện (Friendly)
+                // 2. Quái vật chưa chết (Dead)
+                // 3. Quái vật không đang bị thương (Hurt) (để tránh nhân đôi sát thương)
+                if (monster.State != Monster.MonsterState.Friendly &&
+                    monster.State != Monster.MonsterState.Dead &&
+                    monster.State != Monster.MonsterState.Hurt)
+                {
+                    // Kiểm tra va chạm vật lý
+                    if (playerHitbox.IntersectsWith(monster.Hitbox))
+                    {
+                        // Lấy sát thương của quái vật (dựa trên tệp bạn cung cấp)
+                        int collisionDamage = 5; // Mặc định
+                        if (monster is Slime) collisionDamage = 5; //
+                        else if (monster is Orc) collisionDamage = 10; //
+                        else if (monster is Boss) collisionDamage = 20; //
+
+                        // Gọi hàm ApplyDamageToPlayer
+                        // Gây 1/4 sát thương đòn đánh (hoặc 1, lấy số lớn hơn) khi va chạm
+                        ApplyDamageToPlayer(Math.Max(1, collisionDamage / 4));
+                    }
+                }
                 if (monster.State == Monster.MonsterState.Dead && monster.deathAnim.IsFinished)
                 {
                     float monsterCenterX = monster.X + monster.Width / 2;
@@ -800,22 +826,28 @@ namespace Main
                 }
             }
 
-            // --- THÊM LOGIC CỔNG "FRIENDLY BOSS" ---
-            // Nếu Boss chưa bị đánh bại VÀ cổng chưa xuất hiện
-            if (!_isBossDefeated && _portal == null)
-            {
-                // Tìm Boss
-                var boss = monsters.OfType<Boss>().FirstOrDefault();
+            // --- SỬA: LOGIC CỔNG "FRIENDLY BOSS" ---
+            var boss = monsters.OfType<Boss>().FirstOrDefault();
 
-                // Kiểm tra xem Boss có tồn tại và đang ở trạng thái Friendly không
-                // (Logic trong Boss.cs sẽ đặt trạng thái này nếu _monstersKilled == 0)
-                if (boss != null && boss.State == Monster.MonsterState.Friendly)
+            // Chỉ kiểm tra logic này nếu Boss chưa bị đánh bại VÀ nó còn sống
+            if (!_isBossDefeated && boss != null && boss.State != Monster.MonsterState.Dead)
+            {
+                // 1. KIỂM TRA ĐỂ TẠO CỔNG
+                // Nếu Boss thân thiện VÀ cổng chưa có -> TẠO CỔNG
+                if (boss.State == Monster.MonsterState.Friendly && _portal == null)
                 {
-                    // Nếu Boss thân thiện, tạo cổng ngay tại chỗ Boss
                     float bossCenterX = boss.X + boss.Width / 2;
                     float bossCenterY = boss.Y + boss.Height / 2;
                     _portal = new Portal(bossCenterX, bossCenterY);
                     _isExitOpen = true; // Cho phép qua màn
+                }
+                // 2. KIỂM TRA ĐỂ HỦY CỔNG
+                // Nếu Boss KHÔNG CÒN thân thiện VÀ cổng đang tồn tại
+                else if (boss.State != Monster.MonsterState.Friendly && _portal != null)
+                {
+                    // (Điều này xảy ra nếu bạn tạo cổng friendly, rồi đi giết 1 con Slime)
+                    _portal = null;
+                    _isExitOpen = false;
                 }
             }
 

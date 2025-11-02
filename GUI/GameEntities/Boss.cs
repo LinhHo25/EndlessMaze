@@ -56,7 +56,7 @@ namespace GUI.GameEntities
             runAnim.LoadImages(walkAnim.BackDir, walkAnim.FrontDir, walkAnim.LeftDir, walkAnim.RightDir);
 
             string attackRoot = Path.Combine(bossRoot, "Attack");
-            attackAnim = new AnimationActivity(5) { IsLooping = false };
+            attackAnim = new AnimationActivity(10) { IsLooping = false };
             attackAnim.LoadImages(null, attackRoot, null, null);
 
             string hurtRoot = Path.Combine(bossRoot, "Hurt");
@@ -113,6 +113,9 @@ namespace GUI.GameEntities
 
             if (State == MonsterState.Friendly) return; // BỎ QUA LOGIC DƯỚI NẾU FRIENDLY
 
+            // --- THÊM: Cập nhật Cooldown Tấn công ---
+            if (attackCooldown > 0) attackCooldown--;
+
             if (castCooldown > 0) castCooldown--;
 
             float distanceSq = GetDistanceToPlayer(playerX, playerY);
@@ -161,7 +164,7 @@ namespace GUI.GameEntities
                 State = MonsterState.Casting;
                 castAnim.ResetFrame();
             }
-            else if (distanceSq <= attackRange * attackRange && canSeePlayer)
+            else if (distanceSq <= attackRange * attackRange && canSeePlayer && attackCooldown == 0)
             {
                 // --- SỬA: KÍCH HOẠT TẤN CÔNG VÀ GÂY SÁT THƯƠNG ---
                 // Chỉ kích hoạt nếu không đang tấn công
@@ -171,6 +174,7 @@ namespace GUI.GameEntities
                     attackAnim.ResetFrame();
                     // GỌI HÀM GÂY SÁT THƯƠNG CHO PLAYER
                     game.ApplyDamageToPlayer(this.attackDamage);
+                    attackCooldown = attackCooldownDuration;
                 }
             }
             else if (distanceSq <= aggroRange * aggroRange && canSeePlayer)

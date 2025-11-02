@@ -56,7 +56,7 @@ namespace GUI.GameEntities
 
             // --- SỬA: Trả lại hoạt ảnh tấn công ĐỨNG YÊN (Atk) theo yêu cầu ---
             string attackRoot = Path.Combine(orcRoot, "Atk");
-            attackAnim = new AnimationActivity(5) { IsLooping = false };
+            attackAnim = new AnimationActivity(10) { IsLooping = false };
             attackAnim.LoadImages(Path.Combine(attackRoot, "Back"), Path.Combine(attackRoot, "Front"), Path.Combine(attackRoot, "Left"), Path.Combine(attackRoot, "Right"));
 
             string hurtRoot = Path.Combine(orcRoot, "Hurt");

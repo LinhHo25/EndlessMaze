@@ -1,9 +1,10 @@
-﻿using System;
+﻿using BLL.Services; // <-- THÊM
+using System.IO;
+using DAL.Models; // <-- THÊM
+using System;
 using System.Drawing;
 using System.Drawing.Text;
 using System.Windows.Forms;
-using DAL.Models; // <-- THÊM
-using BLL.Services; // <-- THÊM
 using static BLL.Services.GameSessionService; // <-- THÊM
 
 namespace Main // <-- SỬA: Đổi namespace
@@ -48,6 +49,21 @@ namespace Main // <-- SỬA: Đổi namespace
 
             // Style cho nút đóng
             ApplyCloseButtonStyles(btnClose);
+
+            // --- THÊM: Tải ảnh Avatar ---
+            try
+            {
+                string avatarPath = Path.Combine("ImgSource", "Avt", "AVT3.jpg");
+                if (File.Exists(avatarPath))
+                {
+                    picPlayerAvatar.Image = Image.FromFile(avatarPath);
+                    picPlayerAvatar.SizeMode = PictureBoxSizeMode.Zoom;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Lỗi tải avatar: " + ex.Message);
+            }
 
             // --- Tải chỉ số thực tế của Player vào các Label ---
             if (character != null && stats != null)

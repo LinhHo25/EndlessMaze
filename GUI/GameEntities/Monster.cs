@@ -46,6 +46,10 @@ namespace GUI.GameEntities
         private List<Point> _currentPathTiles = new List<Point>();
         private int _pathUpdateTimer = 0; // Đếm ngược để làm mới đường đi
         private Point _lastPlayerTile = Point.Empty; // Vị trí tile cuối cùng của người chơi
+        // --- THÊM: Biến Cooldown Tấn công ---
+        protected int attackCooldown = 0;
+        // (60 frames ~ 2 giây, có thể được lớp con ghi đè)
+        protected virtual int attackCooldownDuration => 60;
 
         public Monster(float startX, float startY)
         {
@@ -80,6 +84,8 @@ namespace GUI.GameEntities
         {
             if (State == MonsterState.Dead || State == MonsterState.Friendly) return;
             if (game == null) return;
+            // --- THÊM: Cập nhật Cooldown Tấn công ---
+            if (attackCooldown > 0) attackCooldown--;
 
             // Tính khoảng cách (bình phương) đến người chơi
             // (Sử dụng tâm của hitbox nhân vật, giả sử hitbox là 10x10)
@@ -130,7 +136,7 @@ namespace GUI.GameEntities
             if (canSeePlayer)
             {
                 // A1. Nếu trong tầm đánh (do lớp con (Orc) định nghĩa)
-                if (distanceSq <= attackRange * attackRange)
+                if (distanceSq <= attackRange * attackRange && attackCooldown == 0)
                 {
                     // --- SỬA: KÍCH HOẠT TẤN CÔNG VÀ GÂY SÁT THƯƠNG ---
                     // Chỉ kích hoạt nếu không đang tấn công
@@ -140,6 +146,7 @@ namespace GUI.GameEntities
                         attackAnim.ResetFrame();
                         // GỌI HÀM GÂY SÁT THƯƠNG CHO PLAYER
                         game.ApplyDamageToPlayer(this.attackDamage);
+                        attackCooldown = attackCooldownDuration;
                     }
                 }
                 // --- SỬA LỖI AI: Dùng aggroRange (10 ô) thay vì perceptionRange (3 ô) ---

@@ -27,7 +27,7 @@ namespace GUI.GameEntities
             attackDamage = 10;
             speed = 2.0f;
             patrolSpeed = 0.8f;
-            attackRange = 120; // Tầm đánh (4 ô)
+            attackRange = 30; // Tầm đánh (4 ô)
 
             // --- THAY ĐỔI THEO YÊU CẦU ---
             // 1. Giới hạn tuần tra 5 ô

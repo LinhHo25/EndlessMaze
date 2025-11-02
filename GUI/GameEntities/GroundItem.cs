@@ -103,7 +103,7 @@ namespace GUI.GameEntities
         {
             if (itemImage == null) return;
 
-            int drawSize = 24; // Kích thước vẽ (logic 1:1)
+            int drawSize = 15; // Kích thước vẽ (logic 1:1)
             float drawX = (X * scale) - (drawSize * scale / 2f);
             // Áp dụng hiệu ứng nhấp nhô (bobHeight)
             float drawY = (Y * scale) - (drawSize * scale / 2f) + (bobHeight * scale);

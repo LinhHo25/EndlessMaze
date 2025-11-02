@@ -708,7 +708,7 @@ namespace Main
             {
                 float lootX = chest.X + new Random().Next(-10, 10);
                 float lootY = chest.Y + new Random().Next(-10, 10);
-                lootEffects.Add(new LootEffect(lootX, lootY, chest.Width, chest.Height));
+                lootEffects.Add(new LootEffect(lootX, lootY, chest.Width, chest.Height, potionIcon));
             }
 
             _currentHealth = Math.Min(_calculatedStats.TotalHealth, _currentHealth + potionCount * 50);
@@ -752,6 +752,32 @@ namespace Main
                         float dropX = monsterCenterX + _lootRandom.Next(-5, 6);
                         float dropY = monsterCenterY + _lootRandom.Next(-5, 6);
                         _groundItems.Add(new GroundItem(item, dropX, dropY));
+                        // --- THÊM: TẠO LOOTEFFECT VỚI ẢNH THẬT ---
+                        Image itemImageForEffect = null;
+                        try
+                        {
+                            // Lấy ảnh giống hệt cách 'GroundItem' lấy
+                            if (item is Weapons w)
+                            {
+                                string folder = Path.Combine("ImgSource", "Item", "Weapon", w.WeaponRank);
+                                if (Directory.Exists(folder))
+                                    itemImageForEffect = LoadImageSafe(Directory.GetFiles(folder, "*.png").FirstOrDefault(), null);
+                            }
+                            else if (item is Armors a)
+                            {
+                                string fileName = "";
+                                if (a.ArmorRank == "A") fileName = "vwsmmfyu747f1_0.png";
+                                else if (a.ArmorRank == "B") fileName = "vwsmmfyu747f1_1.png";
+                                else if (a.ArmorRank == "C") fileName = "vwsmmfyu747f1_2.png";
+                                else fileName = "vwsmmfyu747f1_3.png"; // Rank D
+
+                                itemImageForEffect = LoadImageSafe(Path.Combine("ImgSource", "Armors", fileName), null);
+                            }
+                        }
+                        catch (Exception ex) { Console.WriteLine("Lỗi tải ảnh cho LootEffect: " + ex.Message); }
+
+                        // Thêm hiệu ứng, truyền ảnh vào
+                        lootEffects.Add(new LootEffect(monster.X, monster.Y, monster.Width, monster.Height, itemImageForEffect));
                     }
 
                     if (monster is Boss)
@@ -1626,6 +1652,43 @@ namespace Main
             this.Close();
         }
 
+        // --- THÊM: HÀM NHẬN SÁT THƯƠNG TỪ QUÁI ---
+        /// <summary>
+        /// Public: Được gọi bởi quái vật (Monster) khi chúng tấn công
+        /// </summary>
+        public void ApplyDamageToPlayer(int damageAmount)
+        {
+            // Người chơi bất tử khi đang lướt, bị thương, hoặc đã chết
+            if (isDashing || isHurt || isDead)
+            {
+                return;
+            }
+
+            // Tính sát thương thực tế (Sát thương quái - Giáp của bạn)
+            int damageTaken = damageAmount - _calculatedStats.TotalDefense;
+            if (damageTaken < 1)
+            {
+                damageTaken = 1; // Luôn nhận ít nhất 1 sát thương
+            }
+
+            _currentHealth -= damageTaken;
+            isHurt = true; // Kích hoạt trạng thái bị thương
+            hurtActivity.ResetFrame(); // Chạy animation bị thương
+
+            // Kiểm tra xem người chơi đã chết chưa
+            if (_currentHealth <= 0)
+            {
+                _currentHealth = 0;
+                isDead = true;
+                isAttacking = false;
+                // Dừng mọi chuyển động
+                goUp = goDown = goLeft = goRight = false;
+                canMove = false;
+                deathActivity.ResetFrame(); // Chạy animation chết
+                // (Logic Game Over đã có sẵn trong UpdateAnimation)
+            }
+        }
+
         private void UpdateAnimation()
         {
             bool isMoving = goUp || goDown || goLeft || goRight;
@@ -1848,132 +1911,9 @@ namespace Main
             _autoPilotTarget = new PointF(targetX, targetY);
         }
 
-        public class LootEffect
-        {
-            private float X, Y;
-            private int Width, Height;
-            private float opacity = 1.0f;
-            private int duration = 60;
-            private int timer = 0;
-            private float floatSpeed = 0.5f;
-            public bool IsFinished => timer >= duration;
 
-            public LootEffect(float monsterX, float monsterY, int monsterWidth, int monsterHeight)
-            {
-                Width = 15;
-                Height = 15;
-                X = monsterX + (monsterWidth / 2f) - (Width / 2f);
-                Y = monsterY + (monsterHeight / 2f) - (Height / 2f);
-            }
-
-            public void Update()
-            {
-                timer++;
-                Y -= floatSpeed;
-                if (timer > duration / 2)
-                {
-                    opacity = 1.0f - (float)(timer - duration / 2) / (duration / 2);
-                }
-            }
-            public void Draw(Graphics canvas, int scale)
-            {
-                if (IsFinished) return;
-                int alpha = (int)(opacity * 255);
-                using (Brush brush = new SolidBrush(Color.FromArgb(alpha, 255, 215, 0))) // Màu vàng
-                {
-                    float drawX = X * scale;
-                    float drawY = Y * scale;
-                    float drawSize = Width * scale;
-                    canvas.FillRectangle(brush, drawX, drawY, drawSize, drawSize);
-                }
-            }
-        }
-
-        // --- Lớp Rương (Chest) ---
-        public class Chest
-        {
-            public float X, Y; // Vị trí TÂM logic (1:1)
-            public int Width { get; private set; } = 20;
-            public int Height { get; private set; } = 20;
-            public bool IsOpened { get; set; } = false;
-            public bool IsAnimationFinished { get; set; } = false;
-            public AnimationActivity OpenAnimation { get; private set; }
-
-            public RectangleF Hitbox => new RectangleF(X - Width / 2f, Y - Height / 2f, Width, Height);
-
-            public Chest(float centerX, float centerY)
-            {
-                X = centerX;
-                Y = centerY;
-                string chestAnimDir = Path.Combine("ImgSource", "Structure", "chest");
-                OpenAnimation = new AnimationActivity(5) { IsLooping = false };
-                OpenAnimation.LoadImages(chestAnimDir, chestAnimDir, chestAnimDir, chestAnimDir);
-            }
-
-            public void StartOpenAnimation()
-            {
-                IsOpened = true;
-                OpenAnimation.ResetFrame();
-            }
-
-            public void UpdateAnimation()
-            {
-                if (IsOpened && !IsAnimationFinished)
-                {
-                    OpenAnimation.GetNextFrame("down");
-                    if (OpenAnimation.IsFinished)
-                    {
-                        IsAnimationFinished = true;
-                    }
-                }
-            }
-        }
-
-    } // Kết thúc lớp frmMainGame
-
-
-    /*
-     
-    --- BẮT ĐẦU XÓA TỪ ĐÂY ---
-
-    // --- GIẢ ĐỊNH CÁC LỚP NÀY NẰM TRONG 1 FILE RIÊNG (VÍ DỤ: MazeGeneration.cs) ---
-    // (Đây chỉ là placeholder để code frmMainGame có thể biên dịch)
-    public enum GameObjectType
-    {
-        Wall = 0,
-        Passage = 1,
-        Start = 2,
-        Exit = 3,
-        Chest = 4
     }
-
-    public class MazeGenerator
-    {
-        public int[,] Maze;
-        public MazeGenerator(int width, int height)
-        {
-            Maze = new int[height, width];
-            // Khởi tạo tất cả là tường
-            for (int y = 0; y < height; y++)
-                for (int x = 0; x < width; x++)
-                    Maze[y, x] = (int)GameObjectType.Wall;
-        }
-        public void GenerateMaze()
-        {
-            // (Thêm thuật toán tạo mê cung thật ở đây...)
-            // Tạo một đường đi đơn giản để test
-            for (int y = 1; y < Maze.GetLength(0) - 1; y++)
-                for (int x = 1; x < Maze.GetLength(1) - 1; x++)
-                    Maze[y, x] = (int)GameObjectType.Passage;
-
-            Maze[1, 1] = (int)GameObjectType.Start;
-            Maze[Maze.GetLength(0) - 2, Maze.GetLength(1) - 2] = (int)GameObjectType.Exit;
-        }
-    }
-    
-    --- XÓA ĐẾN HẾT FILE ---
-    
-    */
 }
+
 
 

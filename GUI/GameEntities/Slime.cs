@@ -27,7 +27,7 @@ namespace GUI.GameEntities
             attackDamage = 5;
             speed = 2.5f;
             patrolSpeed = 1f;
-            attackRange = 90;
+            attackRange = 30;
             aggroRange = 220;
         }
 

@@ -33,7 +33,7 @@ namespace GUI.GameEntities
 
         protected string facingDirection = "down";
         protected float aggroRange = 300; // Tầm phát hiện (sẽ bị ghi đè bởi Orc, Slime, Boss)
-        protected float attackRange = 90;
+        protected float attackRange = 30;
         protected PointF patrolOrigin;
         protected PointF patrolTarget;
         protected int patrolTimer = 0;
@@ -129,8 +129,15 @@ namespace GUI.GameEntities
                 // A1. Nếu trong tầm đánh (do lớp con (Orc) định nghĩa)
                 if (distanceSq <= attackRange * attackRange)
                 {
-                    State = MonsterState.Attack;
-                    attackAnim.ResetFrame();
+                    // --- SỬA: KÍCH HOẠT TẤN CÔNG VÀ GÂY SÁT THƯƠNG ---
+                    // Chỉ kích hoạt nếu không đang tấn công
+                    if (State != MonsterState.Attack)
+                    {
+                        State = MonsterState.Attack;
+                        attackAnim.ResetFrame();
+                        // GỌI HÀM GÂY SÁT THƯƠNG CHO PLAYER
+                        game.ApplyDamageToPlayer(this.attackDamage);
+                    }
                 }
                 // --- SỬA LỖI AI: Dùng aggroRange (10 ô) thay vì perceptionRange (3 ô) ---
                 // A2. Nếu trong tầm phát hiện (10 ô) hoặc đang truy đuổi

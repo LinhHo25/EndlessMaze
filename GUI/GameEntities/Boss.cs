@@ -159,8 +159,15 @@ namespace GUI.GameEntities
             }
             else if (distanceSq <= attackRange * attackRange && canSeePlayer)
             {
-                State = MonsterState.Attack;
-                attackAnim.ResetFrame();
+                // --- SỬA: KÍCH HOẠT TẤN CÔNG VÀ GÂY SÁT THƯƠNG ---
+                // Chỉ kích hoạt nếu không đang tấn công
+                if (State != MonsterState.Attack)
+                {
+                    State = MonsterState.Attack;
+                    attackAnim.ResetFrame();
+                    // GỌI HÀM GÂY SÁT THƯƠNG CHO PLAYER
+                    game.ApplyDamageToPlayer(this.attackDamage);
+                }
             }
             else if (distanceSq <= aggroRange * aggroRange && canSeePlayer)
             {

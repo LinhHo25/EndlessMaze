@@ -130,7 +130,9 @@
       <DependentUpon>frmStatus.cs</DependentUpon>
     </Compile>
     <Compile Include="GameEntities\Boss.cs" />
+    <Compile Include="GameEntities\Chest.cs" />
     <Compile Include="GameEntities\GroundItem.cs" />
+    <Compile Include="GameEntities\LootEffect.cs" />
     <Compile Include="GameEntities\Monster.cs" />
     <Compile Include="GameEntities\Orc.cs" />
     <Compile Include="GameEntities\Portal.cs" />

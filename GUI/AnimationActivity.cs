@@ -26,6 +26,11 @@ namespace Main
         public bool IsLooping { get; set; } = true;
         public bool IsFinished { get; private set; } = false;
 
+        // --- KHẮC PHỤC LỖI CS1061: THÊM THUỘC TÍNH PUBLIC ---
+        public int CurrentFrameIndex => steps;
+        public int CurrentFrameChangeCount => slowDownFrameRate;
+        // ----------------------------------------------------
+
         public AnimationActivity(int speed = 10)
         {
             AnimationSpeed = speed;

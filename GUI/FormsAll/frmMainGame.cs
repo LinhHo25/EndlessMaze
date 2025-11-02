@@ -14,20 +14,23 @@ using DAL.Models; // <-- SỬ DỤNG LỚP MODEL THẬT CỦA BẠN
 
 namespace Main
 {
-    // --- LƯU Ý: MazeGenerator và GameObjectType cần được định nghĩa trong MazeGeneration.cs ---
+    // CÁC LỚP BỔ SUNG NHƯ MazeGenerator, GameObjectType, AnimationActivity CẦN ĐƯỢC ĐỊNH NGHĨA NGOÀI FILE NÀY
 
     public partial class frmMainGame : Form // Đổi tên lớp Form thành frmMainGame
     {
         private readonly DAL.Models.PlayerCharacters _character; // SỬ DỤNG DAL.Models.PlayerCharacters
         private readonly int _mapLevel;
+        private int _currentHealth; // Máu hiện tại của nhân vật
+        private int _currentStamina; // THÊM: Stamina hiện tại
+        private int _currentDefense; // Giáp hiện tại của nhân vật
 
         // --- HẰNG SỐ MÊ CUNG VÀ GAME ---
         private const int TILE_SIZE = 30; // Kích thước mỗi ô mê cung (pixel)
         private const int MAZE_LOGIC_WIDTH = 51; // Kích thước lưới logic (STEP=2)
         private const int MAZE_LOGIC_HEIGHT = 31; // Kích thước lưới logic (STEP=2)
-        private const float REVEAL_RADIUS = 7.0f; // KHÔI PHỤC: Bán kính khám phá rộng hơn
+        private const float REVEAL_RADIUS = 7.0f; // Bán kính khám phá
 
-        // THAY ĐỔI CẤP ĐỘ BẢO VỆ TỪ private SANG public (KHẮC PHỤC CS0122)
+        // CÁC HẰNG SỐ CÔNG KHAI
         public const float BASE_SLIDE_TOLERANCE = 4.0f; // Độ trượt cơ sở (1:1)
         public const int RENDER_SCALE = 3; // TỶ LỆ PHÓNG TO: Mỗi ô logic sẽ được vẽ thành 3x3 ô vật lý
 
@@ -36,13 +39,25 @@ namespace Main
         private int _mapLogicalHeightScaled => MAZE_LOGIC_HEIGHT * TILE_SIZE * RENDER_SCALE;
         // -----------------------------
 
-        // --- THÊM: Biến Camera, Fog of War, và LOGIC GAME MỚI ---
-        private float _cameraX = 0;
-        private float _cameraY = 0;
+        // --- THÀNH PHẦN CAMERA CHÍNH ---
+        private float _cameraX = 0; // Tọa độ X của camera trên Map Scaled
+        private float _cameraY = 0; // Tọa độ Y của camera trên Map Scaled
+                                    // ---------------------------------
+
+        // --- THÊM: Biến Fog of War, và LOGIC GAME MỚI ---
         private bool[,] _isTileVisible = new bool[MAZE_LOGIC_HEIGHT, MAZE_LOGIC_WIDTH];
 
-        public int _monstersKilled = 0; // ĐIỀU KIỆN KẾT THÚC: Đếm số quái đã giết
-        public bool _isBossDefeated = false; // ĐIỀU KIỆN KẾT THÚC: Cờ Boss đã chết
+        public int _monstersKilled = 0;
+        public bool _isBossDefeated = false;
+        private bool _isExitOpen = false;
+        private RectangleF _exitRectScaled;
+
+        // --- PLAYER AI CONTROLS ---
+        private bool _isAutoPiloting = false;
+        private PointF _autoPilotTarget;
+        // Phạm vi tuần tra của Player AI (5 ô logic)
+        private readonly float PLAYER_PATROL_RANGE_SQ = (5 * TILE_SIZE) * (5 * TILE_SIZE);
+        // ------------------------
 
         private Image playerImage;
         private float playerX = 1.5f * TILE_SIZE;
@@ -79,12 +94,12 @@ namespace Main
         private int mapHeight;
         private Image floorTexture;
         private Image wallTexture;
+        private Image chestTexture; // THÊM: Texture rương (Khai báo)
 
         // KHẮC PHỤC LỖI CS0103: Thêm lại khai báo biến
         private Image darkFloorTexture;
         private Image darkWallTexture;
 
-        // LOẠI BỎ TEXTURE TỐI (Vì chúng không có sẵn), THAY BẰNG LOGIC VẼ MỜ
         private int wallThickness = 50;
         private int gapYPosition = 100;
         private int gapSize = 150;
@@ -92,6 +107,8 @@ namespace Main
         private List<Monster> monsters = new List<Monster>();
 
         private List<SpellEffect> spellEffects = new List<SpellEffect>();
+        private List<LootEffect> lootEffects = new List<LootEffect>();
+        private List<Chest> chests = new List<Chest>(); // THÊM: Danh sách rương
 
         // LƯU TRỮ CÁC Ô TƯỜNG CỦA MÊ CUNG
         private List<RectangleF> _mazeWallRects = new List<RectangleF>();
@@ -100,44 +117,42 @@ namespace Main
 
         // --- CÁC THAM SỐ VẼ MỜ ---
         private ImageAttributes _darkenAttributes = new ImageAttributes();
+        private Font _uiFont; // THÊM: Font cho UI
 
         public frmMainGame()
         {
             InitializeComponent();
-            // THIẾT LẬP COLOR MATRIX LÀM TỐI (DARKEN)
-            float[][] colorMatrixElements = {
-                new float[] {.5f,  .0f,  .0f,  .0f, 0.0f}, // red scale factor
-                new float[] {.0f,  .5f,  .0f,  .0f, 0.0f}, // green scale factor
-                new float[] {.0f,  .0f,  .5f,  .0f, 0.0f}, // blue scale factor
-                new float[] {.0f,  .0f,  .0f, 1.0f, 0.0f}, // alpha scale factor
-                new float[] {.0f, 0.0f, 0.0f, 0.0f, 1.0f}  // translations
-            };
-            ColorMatrix colorMatrix = new ColorMatrix(colorMatrixElements);
-            _darkenAttributes.SetColorMatrix(colorMatrix, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
+            InitializeDrawingAttributes();
         }
 
         public frmMainGame(DAL.Models.PlayerCharacters character, int mapLevel) // SỬA: Nhận DAL.Models.PlayerCharacters
         {
             InitializeComponent();
-            // THIẾT LẬP COLOR MATRIX LÀM TỐI (DARKEN)
-            float[][] colorMatrixElements = {
-                new float[] {.5f,  .0f,  .0f,  .0f, 0.0f},
-                new float[] {.0f,  .5f,  .0f,  .0f, 0.0f},
-                new float[] {.0f,  .0f,  .5f,  .0f, 0.0f},
-                new float[] {.0f,  .0f,  .0f, 1.0f, 0.0f},
-                new float[] {.0f, 0.0f, 0.0f, 0.0f, 1.0f}
-            };
-            ColorMatrix colorMatrix = new ColorMatrix(colorMatrixElements);
-            _darkenAttributes.SetColorMatrix(colorMatrix, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
+            InitializeDrawingAttributes();
 
             _character = character;
             _mapLevel = mapLevel;
+
+            // THÊM: Khởi tạo máu và giáp từ Character Model
+            _currentHealth = _character.BaseHealth;
+            _currentStamina = _character.BaseStamina; // Khởi tạo Stamina
+            _currentDefense = _character.BaseDefense;
+
             this.Text = $"Chơi - {_character.CharacterName} (Map: {_mapLevel})";
+
+            // BẬT CÁC NÚT ĐIỀU KHIỂN CỬA SỔ
+            this.FormBorderStyle = FormBorderStyle.Sizable; // Cho phép thay đổi kích thước
+            this.MaximizeBox = true; // Bật nút Maximize
+            this.MinimizeBox = true; // Bật nút Minimize
 
             this.DoubleBuffered = true;
             this.KeyPreview = true;
             this.Cursor = Cursors.Cross;
 
+            // Gợi ý thu nhỏ cửa sổ hiển thị map
+            // Bạn có thể chỉnh lại kích thước cửa sổ game tại đây hoặc trong frmMainGame.designer.cs:
+            // mapWidth = 800;
+            // mapHeight = 600;
             mapWidth = this.ClientSize.Width;
             mapHeight = this.ClientSize.Height;
 
@@ -156,9 +171,31 @@ namespace Main
             playerY = (float)Math.Floor(passageCenterY - playerHeight / 2f);
 
             InitializeMonsters();
+            InitializeChests(); // THÊM: Khởi tạo rương
+
+            // KHỞI TẠO MỤC TIÊU AI CHO PLAYER
+            _autoPilotTarget = new PointF(playerX + playerWidth / 2f, playerY + playerHeight / 2f); // Bắt đầu tại vị trí hiện tại
 
             gameTimer.Start();
         }
+
+        private void InitializeDrawingAttributes()
+        {
+            // THIẾT LẬP COLOR MATRIX LÀM TỐI (DARKEN)
+            float[][] colorMatrixElements = {
+                new float[] {.5f,  .0f,  .0f,  .0f, 0.0f},
+                new float[] {.0f,  .5f,  .0f,  .0f, 0.0f},
+                new float[] {.0f,  .0f,  .5f,  .0f, 0.0f},
+                new float[] {.0f,  .0f,  .0f, 1.0f, 0.0f},
+                new float[] {.0f, 0.0f, 0.0f, 0.0f, 1.0f}
+            };
+            ColorMatrix colorMatrix = new ColorMatrix(colorMatrixElements);
+            _darkenAttributes.SetColorMatrix(colorMatrix, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
+
+            // Khởi tạo Font UI
+            _uiFont = new Font("Arial", 10, FontStyle.Bold);
+        }
+
 
         private void LoadCharacterAnimations()
         {
@@ -237,13 +274,18 @@ namespace Main
             {
                 string floorPath = Path.Combine("ImgSource", "Block", "default", "Floor", "catacombs_0.png");
                 string wallPath = Path.Combine("ImgSource", "Block", "default", "Wall", "Stone_Wall", "stone_brick_1.png");
+                // THAY THẾ CHỈNH SỬA: Dùng đường dẫn thư mục `Half` hoặc `chest` cho rương
+                string chestPath = Path.Combine("ImgSource", "Structure", "chest", "chest_animation_1.png");
+                // Fallback cho rương sẽ là wallTexture
 
                 // 1. Tải ảnh sáng (gốc)
                 floorTexture = Image.FromFile(floorPath);
                 wallTexture = Image.FromFile(wallPath);
 
-                // 2. Tải ảnh tối (Dark Texture) - SỬA LỖI LOAD FILE
-                // Do file _dark.png không tồn tại, ta chỉ cần gán lại bằng file gốc để tránh lỗi
+                // 2. Tải ảnh Rương (sử dụng LoadImageSafe nếu không có)
+                chestTexture = LoadImageSafe(chestPath, wallTexture);
+
+                // 3. Ảnh tối (Dark Texture) - Sử dụng ảnh gốc (Đã được làm tối bằng ColorMatrix)
                 darkFloorTexture = floorTexture;
                 darkWallTexture = wallTexture;
 
@@ -297,20 +339,54 @@ namespace Main
 
         private void InitializeMonsters()
         {
-            // SỬ DỤNG TILE_SIZE ĐỂ ĐẶT VỊ TRÍ QUÁI VẬT
-            // Vị trí vẫn dựa trên lưới 1:1 logic, nhưng sẽ được vẽ bằng tỷ lệ 3x
+            // TĂNG SỐ LƯỢNG QUÁI VẬT: 5 Slime, 5 Orc
+            monsters.Clear(); // Đảm bảo làm sạch
             monsters.Add(new Slime(10 * TILE_SIZE, 10 * TILE_SIZE));
-            monsters.Add(new Slime(20 * TILE_SIZE, 15 * TILE_SIZE));
+            monsters.Add(new Slime(10 * TILE_SIZE, 15 * TILE_SIZE));
+            monsters.Add(new Slime(15 * TILE_SIZE, 20 * TILE_SIZE));
+            monsters.Add(new Slime(20 * TILE_SIZE, 20 * TILE_SIZE));
+            monsters.Add(new Slime(30 * TILE_SIZE, 20 * TILE_SIZE));
 
             monsters.Add(new Orc(30 * TILE_SIZE, 5 * TILE_SIZE));
-            monsters.Add(new Orc(40 * TILE_SIZE, 20 * TILE_SIZE));
-            monsters.Add(new Orc(25 * TILE_SIZE, 25 * TILE_SIZE));
+            monsters.Add(new Orc(35 * TILE_SIZE, 10 * TILE_SIZE));
+            monsters.Add(new Orc(40 * TILE_SIZE, 15 * TILE_SIZE));
+            monsters.Add(new Orc(20 * TILE_SIZE, 25 * TILE_SIZE));
+            monsters.Add(new Orc(45 * TILE_SIZE, 25 * TILE_SIZE));
 
             // ĐIỀU CHỈNH: Đặt Boss ngay trước cửa ra ở góc dưới bên phải
             float bossX = (MAZE_LOGIC_WIDTH - 4) * TILE_SIZE; // Đẩy boss lùi 4 ô so với biên
             float bossY = (MAZE_LOGIC_HEIGHT - 4) * TILE_SIZE; // Đẩy boss lùi 4 ô so với biên
             monsters.Add(new Boss(bossX, bossY));
         }
+
+        // --- THÊM: Khởi tạo Rương ---
+        private void InitializeChests()
+        {
+            // ĐIỀU CHỈNH: Đặt rương tại các góc/hốc kẹt (tọa độ Passage logic)
+            chests.Clear(); // Xóa rương cũ
+
+            // Mê cung sử dụng STEP=2, nghĩa là Passage ở tọa độ LẺ, Wall ở tọa độ CHẴN.
+            // Các hốc kẹt thường là các ô Passage (lẻ, lẻ) được bao quanh bởi Wall (chẵn)
+
+            // Rương 1: Góc trên bên trái, sát biên (1, 3)
+            chests.Add(new Chest(1 * TILE_SIZE + TILE_SIZE / 2f, 3 * TILE_SIZE + TILE_SIZE / 2f));
+
+            // Rương 2: Góc trên bên phải, sát biên (49, 1)
+            chests.Add(new Chest((MAZE_LOGIC_WIDTH - 2) * TILE_SIZE + TILE_SIZE / 2f, 1 * TILE_SIZE + TILE_SIZE / 2f));
+
+            // Rương 3: Góc dưới bên trái, sát biên (1, 29)
+            chests.Add(new Chest(1 * TILE_SIZE + TILE_SIZE / 2f, (MAZE_LOGIC_HEIGHT - 2) * TILE_SIZE + TILE_SIZE / 2f));
+
+            // Rương 4: Góc dưới bên phải (tránh Boss) (45, 27)
+            chests.Add(new Chest(45 * TILE_SIZE + TILE_SIZE / 2f, 27 * TILE_SIZE + TILE_SIZE / 2f));
+
+            // Rương 5: Trung tâm map, hốc chẵn (25, 15)
+            chests.Add(new Chest(25 * TILE_SIZE + TILE_SIZE / 2f, 15 * TILE_SIZE + TILE_SIZE / 2f));
+
+            // Rương 6: Gần góc (35, 7)
+            chests.Add(new Chest(35 * TILE_SIZE + TILE_SIZE / 2f, 7 * TILE_SIZE + TILE_SIZE / 2f));
+        }
+
 
         // --- HÀM RemoveWall KHÔNG CẦN THIẾT NỮA ---
         // private void RemoveWall(int cellX, int cellY, char direction) { ... }
@@ -322,6 +398,23 @@ namespace Main
         {
             if (isDead) return;
 
+            // KIỂM TRA PHÍM P ĐỂ BẬT/TẮT AUTOPILOT
+            if (e.KeyCode == Keys.P)
+            {
+                ToggleAutoPilot();
+                return;
+            }
+
+            // THÊM: KIỂM TRA PHÍM E ĐỂ MỞ RƯƠNG
+            if (e.KeyCode == Keys.E)
+            {
+                CheckChestInteraction(); // Gọi hàm kiểm tra tương tác rương
+                return;
+            }
+
+
+            if (_isAutoPiloting) return; // Bỏ qua input nếu đang tự lái
+
             if (e.KeyCode == Keys.W) goUp = true;
             if (e.KeyCode == Keys.S) goDown = true;
             if (e.KeyCode == Keys.A) goLeft = true;
@@ -330,15 +423,22 @@ namespace Main
 
             if (e.KeyCode == Keys.ShiftKey && !isDashing && dashCooldown == 0)
             {
-                isDashing = true;
-                dashTimer = 10;
-                dashCooldown = 60;
-                GetDashDirection();
+                // Logic Dash: Giảm Stamina (Giả định mất 50 ST)
+                if (_currentStamina >= 50)
+                {
+                    _currentStamina -= 50;
+                    isDashing = true;
+                    dashTimer = 10;
+                    dashCooldown = 60;
+                    GetDashDirection();
+                }
             }
         }
 
         private void frmMainGame_KeyUp(object sender, KeyEventArgs e)
         {
+            if (_isAutoPiloting) return; // Bỏ qua input nếu đang tự lái
+
             if (e.KeyCode == Keys.W) goUp = false;
             if (e.KeyCode == Keys.S) goDown = false;
             if (e.KeyCode == Keys.A) goLeft = false;
@@ -368,17 +468,35 @@ namespace Main
 
         #endregion
 
+        // --- HÀM MỚI: BẬT/TẮT AUTOPILOT ---
+        private void ToggleAutoPilot()
+        {
+            _isAutoPiloting = !_isAutoPiloting;
+            if (_isAutoPiloting)
+            {
+                // Reset cờ di chuyển thủ công
+                goUp = goDown = goLeft = goRight = isRunning = false;
+                // Đặt mục tiêu đầu tiên là vị trí hiện tại
+                _autoPilotTarget = new PointF(playerX + playerWidth / 2f, playerY + playerHeight / 2f);
+            }
+            MessageBox.Show(_isAutoPiloting ? "AI Tuần tra đã được BẬT (Phím P)" : "Điều khiển thủ công đã được BẬT", "Chế độ Player");
+        }
+
+
         private void GameTimer_Tick(object sender, EventArgs e)
         {
             // KHẮC PHỤC LỖI: Không nên gọi Dispose() cho playerImage
             // playerImage?.Dispose(); 
 
+            UpdateStamina(); // CẬP NHẬT STAMINA
+
             UpdateFacingDirection();
             UpdateDashState();
-            UpdateMovement();
+            UpdateMovement(); // LÀM LẠI LOGIC DI CHUYỂN
             UpdateCamera();
             UpdateFogOfWar(); // CẬP NHẬT FOG OF WAR
             UpdateAnimation();
+            // CheckChestInteraction(); // KHÔNG CẦN CHẠY Ở ĐÂY NỮA, ĐÃ CHUYỂN SANG PHÍM E
 
             foreach (var monster in monsters.ToList())
             {
@@ -386,13 +504,25 @@ namespace Main
 
                 if (monster.State == Monster.MonsterState.Dead && monster.deathAnim.IsFinished)
                 {
+                    // TẠO HOẠT ẢNH RƠI ĐỒ VÀ GHI NHẬN VIỆC GIẾT
                     monsters.Remove(monster);
-                    _monstersKilled++; // ĐIỀU KIỆN KẾT THÚC: Tăng biến đếm
+                    _monstersKilled++;
+
+                    // Thêm Loot Effect tại vị trí chết của quái vật
+                    // Tăng số lượng loot effect cho Boss
+                    int lootCount = (monster is Boss) ? 5 : 1;
+                    for (int i = 0; i < lootCount; i++)
+                    {
+                        lootEffects.Add(new LootEffect(monster.X, monster.Y, monster.Width, monster.Height));
+                    }
+
 
                     // Nếu quái vật chết là Boss
                     if (monster is Boss)
                     {
-                        _isBossDefeated = true; // ĐIỀU KIỆN KẾT THÚC: Cập nhật cờ Boss
+                        _isBossDefeated = true; // Cập nhật cờ Boss
+                        _isExitOpen = true; // MỞ CỔNG RA NGAY KHI BOSS CHẾT
+                        MessageBox.Show("Boss đã bị đánh bại! Cổng ra đã mở.");
                     }
                 }
             }
@@ -406,7 +536,101 @@ namespace Main
                 }
             }
 
+            // Cập nhật hiệu ứng Loot
+            foreach (var loot in lootEffects.ToList())
+            {
+                loot.Update();
+                if (loot.IsFinished)
+                {
+                    lootEffects.Remove(loot);
+                }
+            }
+
+
             this.Invalidate();
+        }
+
+        // --- HÀM MỚI: CẬP NHẬT STAMINA ---
+        private void UpdateStamina()
+        {
+            // Tốc độ hồi Stamina (Giả định hồi 10 ST/giây = 10 / 60 tick)
+            int regenRate = 5; // Hồi 5 ST/tick (Rất nhanh)
+            int runCost = 2; // Mất 2 ST/tick khi chạy
+
+            if (isRunning && (goUp || goDown || goLeft || goRight))
+            {
+                _currentStamina = Math.Max(0, _currentStamina - runCost);
+            }
+            else if (!isDashing && !isRunning && !isAttacking)
+            {
+                _currentStamina = Math.Min(_character.BaseStamina, _currentStamina + regenRate);
+            }
+
+            // Nếu hết stamina, không thể chạy được nữa
+            if (_currentStamina == 0)
+            {
+                isRunning = false;
+            }
+        }
+
+        // --- THÊM: Kiểm tra tương tác với Rương (Dùng cho Phím E) ---
+        private void CheckChestInteraction()
+        {
+            RectangleF playerHitboxLogic = new RectangleF(playerX, playerY, playerWidth, playerHeight);
+
+            foreach (var chest in chests.ToList())
+            {
+                // Kiểm tra Player có va chạm với rương không
+                if (!chest.IsOpened && playerHitboxLogic.IntersectsWith(chest.Hitbox))
+                {
+                    OpenChest(chest);
+                    return; // Chỉ mở 1 rương mỗi lần nhấn phím
+                }
+            }
+        }
+
+        // --- THÊM: Logic mở Rương ---
+        private void OpenChest(Chest chest)
+        {
+            chest.IsOpened = true;
+
+            // 100% ra tối thiểu 1 bình
+            int potionCount = 1;
+            int roll = new Random().Next(1, 101); // Roll từ 1 đến 100
+
+            // Tỷ lệ: 4 bình (10%), 3 bình (30%), 2 bình (70%)
+            // Roll cho số lượng bổ sung (trên 1 bình bắt buộc)
+            if (roll <= 10) // 10% cho 4 bình (1 base + 3 bonus)
+            {
+                potionCount = 4;
+            }
+            else if (roll <= 30) // 20% (30-10) cho 3 bình (1 base + 2 bonus)
+            {
+                potionCount = 3;
+            }
+            else if (roll <= 70) // 40% (70-30) cho 2 bình (1 base + 1 bonus)
+            {
+                potionCount = 2;
+            }
+            else // 30% (100-70) còn lại, giữ nguyên 1 bình
+            {
+                potionCount = 1;
+            }
+
+            // Tạm thời chỉ hiển thị MessageBox vì không có hệ thống Inventory thật
+            MessageBox.Show($"Bạn tìm thấy {potionCount} bình Thuốc Hồi Máu! (Giả định hồi 50 HP/bình)", "Rương đã mở");
+
+            // Tạo hiệu ứng Loot tại vị trí rương
+            for (int i = 0; i < potionCount; i++)
+            {
+                // Rơi loot hơi phân tán
+                float lootX = chest.X + new Random().Next(-10, 10);
+                float lootY = chest.Y + new Random().Next(-10, 10);
+                lootEffects.Add(new LootEffect(lootX, lootY, chest.Width, chest.Height));
+            }
+
+            // THÊM LOGIC HỒI MÁU (Giả định mỗi bình hồi 50 HP)
+            _currentHealth = Math.Min(_character.BaseHealth, _currentHealth + potionCount * 50);
         }
 
         // --- HÀM MỚI: CẬP NHẬT FOG OF WAR ---
@@ -491,18 +715,26 @@ namespace Main
             DrawFloor(canvas);
             DrawWalls(canvas);
 
-            // 3. VẼ QUÁI VẬT, SPELL VÀ NGƯỜI CHƠI (Áp dụng Scale 3x cho tất cả vị trí)
+            // 3. VẼ RƯƠNG
+            DrawChests(canvas);
+
+
+            // 4. VẼ QUÁI VẬT, SPELL VÀ NGƯỜI CHƠI (Áp dụng Scale 3x cho tất cả vị trí)
 
             // VẼ TẤT CẢ VỊ TRÍ VẬT LÝ x RENDER_SCALE
 
             // VẼ NGƯỜI CHƠI
             if (playerImage != null)
             {
+                // Kích thước vẽ Player (100x100)
+                int playerDrawWidth = 100;
+                int playerDrawHeight = 100;
+
                 // Vị trí vẽ được căn chỉnh để hình ảnh 100x100 khớp với hitbox 25x25
                 // drawX = playerScaledX - (image_width - hitbox_width)/2
-                int drawX = (int)(playerX * RENDER_SCALE) - (100 - playerWidth) / 2;
-                int drawY = (int)(playerY * RENDER_SCALE) - (100 - playerHeight) / 2;
-                canvas.DrawImage(playerImage, drawX, drawY, 100, 100);
+                int drawX = (int)(playerX * RENDER_SCALE) - (playerDrawWidth - playerWidth * RENDER_SCALE) / 2;
+                int drawY = (int)(playerY * RENDER_SCALE) - (playerDrawHeight - playerHeight * RENDER_SCALE) / 2;
+                canvas.DrawImage(playerImage, drawX, drawY, playerDrawWidth, playerDrawHeight);
             }
 
             // VẼ MONSTER
@@ -540,10 +772,162 @@ namespace Main
                 // Truyền vị trí đã scale vào Draw
                 spell.Draw(canvas, RENDER_SCALE);
             }
+
+            // VẼ LOOT EFFECTS
+            foreach (var loot in lootEffects)
+            {
+                loot.Draw(canvas, RENDER_SCALE);
+            }
+
+            // VẼ CỔNG RA NẾU ĐÃ MỞ
+            if (_isExitOpen)
+            {
+                DrawExitGate(canvas);
+            }
+
+            // --- KHÔI PHỤC CAMERA (Vẽ UI) ---
+            canvas.ResetTransform();
+
+            // 4. VẼ UI (Thanh trạng thái)
+            DrawUI(canvas);
         }
 
+        // --- THÊM: VẼ RƯƠNG ---
+        private void DrawChests(Graphics canvas)
+        {
+            RectangleF viewportRect = new RectangleF(_cameraX, _cameraY, mapWidth, mapHeight);
 
-        #region Logic Phụ (Helper Logic)
+            foreach (var chest in chests)
+            {
+                // Lấy vị trí logic của rương
+                int chestTileX = (int)((chest.X) / TILE_SIZE);
+                int chestTileY = (int)((chest.Y) / TILE_SIZE);
+
+                // Chỉ vẽ rương nếu ô logic của nó đã được khám phá
+                if (chestTileY >= 0 && chestTileY < MAZE_LOGIC_HEIGHT &&
+                    chestTileX >= 0 && chestTileX < MAZE_LOGIC_WIDTH &&
+                    _isTileVisible[chestTileY, chestTileX])
+                {
+                    // Vị trí vẽ (Scaled)
+                    // Rương được đặt ở tâm của Hitbox, nên vị trí vẽ là X * scale - width/2
+                    float drawX = (chest.X - chest.Width / 2f) * RENDER_SCALE;
+                    float drawY = (chest.Y - chest.Height / 2f) * RENDER_SCALE;
+                    float drawWidth = chest.Width * RENDER_SCALE;
+                    float drawHeight = chest.Height * RENDER_SCALE;
+
+                    RectangleF scaledRect = new RectangleF(drawX, drawY, drawWidth, drawHeight);
+
+                    if (viewportRect.IntersectsWith(scaledRect))
+                    {
+                        Image imageToDraw = chestTexture;
+                        ImageAttributes attributesToUse = null;
+
+                        // Nếu rương chưa mở, áp dụng làm tối (vì nó nằm trong vùng đã khám phá)
+                        if (!chest.IsOpened)
+                        {
+                            attributesToUse = _darkenAttributes;
+                        }
+
+                        // VẼ RƯƠNG
+                        // SỬA LỖI CS1503: Sử dụng new Rectangle() để ép kiểu
+                        canvas.DrawImage(
+                            imageToDraw,
+                            new Rectangle(
+                                (int)drawX,
+                                (int)drawY,
+                                (int)drawWidth,
+                                (int)drawHeight
+                            ),
+                            0, 0, imageToDraw.Width, imageToDraw.Height,
+                            GraphicsUnit.Pixel,
+                            attributesToUse
+                        );
+
+                        if (chest.IsOpened)
+                        {
+                            canvas.DrawString("MỞ", _uiFont, Brushes.Yellow, drawX, drawY - 15);
+                        }
+                    }
+                }
+            }
+        }
+
+        private void DrawExitGate(Graphics canvas)
+        {
+            // Vị trí cửa ra: góc dưới bên phải (MAZE_LOGIC_WIDTH-1, MAZE_LOGIC_HEIGHT-1)
+            // Cổng ra logic là 3 ô (từ MAZE_LOGIC_WIDTH-4 đến MAZE_LOGIC_WIDTH-1)
+            float exitTileX = (MAZE_LOGIC_WIDTH - 4) * TILE_SIZE;
+            float exitTileY = (MAZE_LOGIC_HEIGHT - 4) * TILE_SIZE;
+
+            // Vị trí và Kích thước Scaled cho Exit
+            float drawX = exitTileX * RENDER_SCALE;
+            float drawY = exitTileY * RENDER_SCALE;
+            float drawSize = TILE_SIZE * RENDER_SCALE * 3;
+
+            // Vị trí Scaled cho Exit (cho tiện kiểm tra)
+            _exitRectScaled = new RectangleF(drawX, drawY, drawSize, drawSize);
+
+
+            using (Brush exitBrush = new SolidBrush(Color.FromArgb(150, 0, 255, 255))) // Màu Cyan mờ
+            using (Pen exitPen = new Pen(Color.Cyan, 3f))
+            {
+                // VẼ KHU VỰC CỔNG RA
+                canvas.FillRectangle(exitBrush, _exitRectScaled);
+                canvas.DrawRectangle(exitPen, _exitRectScaled.X, _exitRectScaled.Y, _exitRectScaled.Width, _exitRectScaled.Height);
+
+                // VẼ TEXT (Vị trí đã scale)
+                canvas.DrawString("EXIT", new Font(FontFamily.GenericSansSerif, 18, FontStyle.Bold), Brushes.White, _exitRectScaled.X + 20, _exitRectScaled.Y + 20);
+            }
+        }
+
+        private void DrawUI(Graphics canvas)
+        {
+            // THIẾT LẬP KÍCH THƯỚC UI (cố định trên màn hình)
+            int uiWidth = 250;
+            int uiHeight = 110; // Tăng chiều cao để chứa 3 thanh bar + Giáp/Kills
+            int margin = 10;
+            int barHeight = 15;
+            int spacing = 5;
+
+            // Vị trí (góc trên bên trái màn hình)
+            Rectangle rectUI = new Rectangle(margin, margin, uiWidth, uiHeight);
+
+            // Vẽ nền UI
+            canvas.FillRectangle(new SolidBrush(Color.FromArgb(180, 0, 0, 0)), rectUI);
+            canvas.DrawRectangle(Pens.White, rectUI);
+
+            // Máu (HP)
+            float maxHP = _character.BaseHealth;
+            float currentHP = _currentHealth;
+            float hpPercent = currentHP / maxHP;
+
+            // Stamina (ST)
+            float maxST = _character.BaseStamina;
+            float currentST = _currentStamina;
+            float stPercent = currentST / maxST;
+
+            // Defense (DEF)
+            float currentDEF = _currentDefense;
+
+            // Vẽ HP Bar (Vị trí: 10, 10)
+            canvas.FillRectangle(Brushes.DarkRed, margin + 10, margin + 10, uiWidth - 20, barHeight);
+            canvas.FillRectangle(Brushes.Red, margin + 10, margin + 10, (int)((uiWidth - 20) * hpPercent), barHeight);
+            canvas.DrawString($"HP: {currentHP}/{maxHP}", new Font("Arial", 10, FontStyle.Bold), Brushes.White, margin + 15, margin + 10);
+
+            // Vẽ STAMINA Bar (Vị trí: 10, 10 + 15 + 5 = 30)
+            int stY = margin + 10 + barHeight + spacing;
+            canvas.FillRectangle(Brushes.DarkGreen, margin + 10, stY, uiWidth - 20, barHeight);
+            canvas.FillRectangle(Brushes.LimeGreen, margin + 10, stY, (int)((uiWidth - 20) * stPercent), barHeight);
+            canvas.DrawString($"ST: {currentST}/{maxST}", new Font("Arial", 10, FontStyle.Bold), Brushes.White, margin + 15, stY);
+
+            // Vẽ DEFENSE (Vị trí: 10, 30 + 15 + 5 = 50)
+            int defY = stY + barHeight + spacing;
+            canvas.DrawString($"DEF: {currentDEF}", new Font("Arial", 10, FontStyle.Bold), Brushes.Yellow, margin + 10, defY);
+
+            // VẼ QUÁI VẬT ĐÃ GIẾT (Vị trí: 10, 50 + 20 = 70)
+            int killsY = defY + 20;
+            canvas.DrawString($"KILLS: {_monstersKilled}", new Font("Arial", 10, FontStyle.Bold), Brushes.Yellow, margin + 10, killsY);
+        }
 
         private void CheckPlayerAttackHit()
         {
@@ -579,7 +963,7 @@ namespace Main
             foreach (var monster in monsters)
             {
                 // Hitbox của quái vật (monster.Hitbox) cần được đọc là đã scale
-                if (monster.State != Monster.MonsterState.Dead && scaledAttackHitbox.IntersectsWith(monster.ScaledHitbox(RENDER_SCALE)))
+                if (monster.State != Monster.MonsterState.Dead && monster.ScaledHitbox(RENDER_SCALE).IntersectsWith(scaledAttackHitbox))
                 {
                     int playerDamage = 10;
                     monster.TakeDamage(playerDamage);
@@ -631,10 +1015,10 @@ namespace Main
                                 canvas.DrawImage(
                                     imageToDraw,
                                     new Rectangle(
-                                        x * TILE_SIZE * RENDER_SCALE,
-                                        y * TILE_SIZE * RENDER_SCALE,
-                                        TILE_SIZE * RENDER_SCALE,
-                                        TILE_SIZE * RENDER_SCALE
+                                        (int)(x * TILE_SIZE * RENDER_SCALE),
+                                        (int)(y * TILE_SIZE * RENDER_SCALE),
+                                        (int)(TILE_SIZE * RENDER_SCALE),
+                                        (int)(TILE_SIZE * RENDER_SCALE)
                                     ),
                                     0, 0, imageToDraw.Width, imageToDraw.Height, // Source Rectangle
                                     GraphicsUnit.Pixel,
@@ -723,8 +1107,13 @@ namespace Main
             float playerScaledX = playerX * RENDER_SCALE;
             float playerScaledY = playerY * RENDER_SCALE;
 
-            float deltaX = mouseXOnMap - (playerScaledX + playerWidth / 2);
-            float deltaY = mouseYOnMap - (playerScaledY + playerHeight / 2);
+            // Lấy tâm người chơi đã scale
+            float playerScaledCenterX = playerScaledX + playerWidth * RENDER_SCALE / 2;
+            float playerScaledCenterY = playerScaledY + playerHeight * RENDER_SCALE / 2;
+
+
+            float deltaX = mouseXOnMap - playerScaledCenterX;
+            float deltaY = mouseYOnMap - playerScaledCenterY;
 
             if (Math.Abs(deltaX) > Math.Abs(deltaY))
             {
@@ -771,6 +1160,27 @@ namespace Main
 
         private void UpdateMovement()
         {
+            // --- LOGIC PLAYER AI (Tuần tra tự động) ---
+            if (_isAutoPiloting)
+            {
+                // Kiểm tra mục tiêu tuần tra có nằm trong phạm vi 0.5 tile (15px)
+                if (Math.Pow(_autoPilotTarget.X - (playerX + playerWidth / 2f), 2) + Math.Pow(_autoPilotTarget.Y - (playerY + playerHeight / 2f), 2) < (0.5f * TILE_SIZE) * (0.5f * TILE_SIZE))
+                {
+                    // Đã đạt mục tiêu, chọn mục tiêu mới trong phạm vi 5 ô từ vị trí hiện tại
+                    SetNewAutoPilotTarget();
+                }
+
+                // Tính toán hướng di chuyển dựa trên mục tiêu AI
+                float dxTarget = _autoPilotTarget.X - (playerX + playerWidth / 2f);
+                float dyTarget = _autoPilotTarget.Y - (playerY + playerHeight / 2f);
+
+                goUp = dyTarget < 0;
+                goDown = dyTarget > 0;
+                goLeft = dxTarget < 0;
+                goRight = dxTarget > 0;
+            }
+            // ------------------------------------------
+
             float dx = 0;
             float dy = 0;
 
@@ -806,7 +1216,7 @@ namespace Main
                         moveY *= factor;
                     }
 
-                    int currentSpeed = isRunning ? runSpeed : walkSpeed;
+                    int currentSpeed = isRunning && _currentStamina > 0 ? runSpeed : walkSpeed;
                     dx = moveX * currentSpeed;
                     dy = moveY * currentSpeed;
                 }
@@ -891,6 +1301,52 @@ namespace Main
                     }
                 }
             }
+
+            // KIỂM TRA VA CHẠM VỚI CỔNG RA
+            if (_isExitOpen && IsCollidingWithExit(playerX, playerY))
+            {
+                HandleMapExit("Chiến thắng!");
+            }
+        }
+
+        // --- HÀM MỚI: ĐẶT MỤC TIÊU AI CHO PLAYER ---
+        private void SetNewAutoPilotTarget()
+        {
+            Random rand = new Random();
+            float range = (float)Math.Sqrt(PLAYER_PATROL_RANGE_SQ); // 5 ô logic = 150px
+            float mapWidthLogic = MAZE_LOGIC_WIDTH * TILE_SIZE;
+            float mapHeightLogic = MAZE_LOGIC_HEIGHT * TILE_SIZE;
+
+            for (int i = 0; i < 10; i++)
+            {
+                // Vị trí tâm hiện tại của Player
+                float currentCenterX = playerX + playerWidth / 2f;
+                float currentCenterY = playerY + playerHeight / 2f;
+
+                // Chọn ngẫu nhiên trong phạm vi 5 ô quanh Player
+                float targetX = currentCenterX + (float)(rand.NextDouble() * 2 * range - range);
+                float targetY = currentCenterY + (float)(rand.NextDouble() * 2 * range - range);
+
+                // Kẹp (Clamp) mục tiêu vào biên map logic
+                targetX = Math.Max(TILE_SIZE, Math.Min(targetX, mapWidthLogic - TILE_SIZE));
+                targetY = Math.Max(TILE_SIZE, Math.Min(targetY, mapHeightLogic - TILE_SIZE));
+
+                // Tạo Hitbox tại vị trí mục tiêu (để kiểm tra va chạm)
+                RectangleF testHitbox = new RectangleF(targetX - playerWidth / 2f, targetY - playerHeight / 2f, playerWidth, playerHeight);
+                RectangleF scaledTestHitbox = new RectangleF(
+                    testHitbox.X * RENDER_SCALE, testHitbox.Y * RENDER_SCALE,
+                    testHitbox.Width * RENDER_SCALE, testHitbox.Height * RENDER_SCALE
+                );
+
+                // Kiểm tra xem mục tiêu có phải là Passage (Không va chạm tường)
+                if (!IsCollidingWithWallScaled(scaledTestHitbox))
+                {
+                    _autoPilotTarget = new PointF(targetX, targetY);
+                    return;
+                }
+            }
+            // Nếu không tìm thấy mục tiêu hợp lệ, giữ nguyên vị trí hiện tại
+            _autoPilotTarget = new PointF(playerX + playerWidth / 2f, playerY + playerHeight / 2f);
         }
 
         // HÀM KIỂM TRA VA CHẠM SCALED MỚI (Dùng cho UpdateMovement)
@@ -936,48 +1392,52 @@ namespace Main
             // Va chạm tường Phải (cửa ra)
             if (futureHitboxScaled.Right > _mapLogicalWidthScaled)
             {
-                // Cửa ra nằm ở góc dưới bên phải (vị trí cuối cùng trong mê cung)
-
-                // Giả định ô cửa ra là ô cuối cùng (được tạo sàn bởi MazeGenerator)
-                float exitTileX = (_mapLogicalWidthScaled - TILE_SIZE * frmMainGame.RENDER_SCALE);
-                float exitTileY = (_mapLogicalHeightScaled - TILE_SIZE * frmMainGame.RENDER_SCALE);
-
-                // KIỂM TRA ĐIỀU KIỆN KẾT THÚC MÀN CHƠI MỚI (Dựa trên tọa độ Scaled)
-                // Kiểm tra xem người chơi có nằm gần ô cửa ra không (ví dụ: trong 3 ô tile cuối cùng)
-                if (futureHitboxScaled.X > exitTileX - TILE_SIZE * frmMainGame.RENDER_SCALE * 3 && futureHitboxScaled.Y > exitTileY - TILE_SIZE * frmMainGame.RENDER_SCALE * 3)
-                {
-                    // Lấy Boss (Giả định Boss là Monster cuối cùng)
-                    Boss boss = monsters.OfType<Boss>().FirstOrDefault();
-
-                    bool isPeacefulExit = _monstersKilled == 0;
-                    bool isBattleExit = _isBossDefeated;
-
-                    if (isPeacefulExit)
-                    {
-                        HandleMapExit("Hòa bình!");
-                        return false; // Cho phép đi qua
-                    }
-                    else if (isBattleExit)
-                    {
-                        HandleMapExit("Chiến thắng!");
-                        return false; // Cho phép đi qua
-                    }
-                    else if (boss != null && boss.State != Monster.MonsterState.Dead)
-                    {
-                        // THÔNG BÁO: Phải đánh bại Boss trước
-                        MessageBox.Show("Boss vẫn còn sống! Không thể qua màn.");
-                        return true; // Chặn
-                    }
-                }
-
-                return true; // Chặn nếu không phải cửa ra
+                // KHÔNG CẦN CHẶN CỬA RA Ở ĐÂY NỮA
+                // Logic xử lý cửa ra đã chuyển sang IsCollidingWithExit()
+                return true; // Chặn nếu va chạm biên
             }
 
             return false;
         }
 
-        // HÀM ISCOLLIDINGWITHWALL BỊ BỎ (CHỈ DÙNG SCALED)
-        // public bool IsCollidingWithWall(RectangleF futureHitbox) { ... }
+        // --- THÊM HÀM KIỂM TRA VA CHẠM CỔNG RA ---
+        public bool IsCollidingWithExit(float playerX, float playerY)
+        {
+            // Hitbox logic (1:1)
+            RectangleF playerHitbox = new RectangleF(playerX, playerY, playerWidth, playerHeight);
+
+            // Cổng ra: Vị trí cuối cùng trong mê cung (3 ô)
+            float exitTileX = (MAZE_LOGIC_WIDTH - 4) * TILE_SIZE;
+            float exitTileY = (MAZE_LOGIC_HEIGHT - 4) * TILE_SIZE;
+
+            RectangleF exitAreaLogic = new RectangleF(
+                exitTileX,
+                exitTileY,
+                TILE_SIZE * 3, // Vị trí mở cổng rộng 3 ô
+                TILE_SIZE * 3
+            );
+
+            // Kiểm tra va chạm trong không gian logic (1:1)
+            if (playerHitbox.IntersectsWith(exitAreaLogic))
+            {
+                // Lấy Boss (Giả định Boss là Monster cuối cùng)
+                Boss boss = monsters.OfType<Boss>().FirstOrDefault();
+
+                // Thoát chỉ cho phép nếu đã đánh bại Boss
+                if (_isBossDefeated)
+                {
+                    return true;
+                }
+                else if (boss != null && boss.State != Monster.MonsterState.Dead)
+                {
+                    // THÔNG BÁO: Phải đánh bại Boss trước
+                    MessageBox.Show("Boss vẫn còn sống! Không thể qua màn.");
+                    return false; // Chặn
+                }
+            }
+
+            return false;
+        }
 
 
         public bool HasLineOfSight(PointF start, PointF end)
@@ -1084,7 +1544,6 @@ namespace Main
             }
         }
 
-        #endregion
     }
 
     public class SpellEffect
@@ -1120,10 +1579,79 @@ namespace Main
             {
                 if (image != null)
                 {
-                    // ÁP DỤNG SCALE KHI VẼ (SỬA LỖI CS0176 - Không áp dụng trong SpellEffect vì 'scale' được truyền vào)
+                    // ÁP DỤNG SCALE KHI VẼ
                     canvas.DrawImage(image, (int)X * scale, (int)Y * scale, Width * scale, Height * scale);
                 }
             }
+        }
+    }
+
+    // --- THAY ĐỔI: Thêm hoạt ảnh rơi đồ đơn giản ---
+    public class LootEffect
+    {
+        private float X, Y;
+        private int Width, Height;
+        private float opacity = 1.0f;
+        private int duration = 60; // 1 giây @ 60 FPS
+        private int timer = 0;
+        private float floatSpeed = 0.5f; // Tốc độ nổi lên
+        public bool IsFinished => timer >= duration;
+
+        // Vị trí tâm logic
+        public LootEffect(float monsterX, float monsterY, int monsterWidth, int monsterHeight)
+        {
+            Width = 15; // Kích thước vật phẩm logic (1:1)
+            Height = 15;
+            // Đặt ở vị trí trung tâm của quái vật
+            X = monsterX + (monsterWidth / 2f) - (Width / 2f);
+            Y = monsterY + (monsterHeight / 2f) - (Height / 2f);
+        }
+
+        public void Update()
+        {
+            timer++;
+            // Nổi lên
+            Y -= floatSpeed;
+            // Giảm độ mờ dần trong nửa sau của thời gian
+            if (timer > duration / 2)
+            {
+                opacity = 1.0f - (float)(timer - duration / 2) / (duration / 2);
+            }
+        }
+
+        public void Draw(Graphics canvas, int scale)
+        {
+            if (IsFinished) return;
+
+            // Hiển thị một hộp loot màu vàng
+            int alpha = (int)(opacity * 255);
+            using (Brush brush = new SolidBrush(Color.FromArgb(alpha, 255, 215, 0))) // Yellow Gold (Có độ mờ)
+            {
+                // Vị trí vẽ đã được scale
+                float drawX = X * scale;
+                float drawY = Y * scale;
+                float drawSize = Width * scale;
+
+                canvas.FillRectangle(brush, drawX, drawY, drawSize, drawSize);
+            }
+        }
+    }
+
+    public class Chest
+    {
+        // Vị trí tâm logic (1:1)
+        public float X, Y;
+        public int Width = 30;
+        public int Height = 30;
+        public bool IsOpened { get; set; } = false;
+
+        public RectangleF Hitbox => new RectangleF(X - Width / 2f, Y - Height / 2f, Width, Height);
+
+        public Chest(float centerX, float centerY)
+        {
+            // X và Y là tâm của rương
+            X = centerX;
+            Y = centerY;
         }
     }
 
@@ -1158,12 +1686,18 @@ namespace Main
         protected int patrolTimer = 0;
         protected static Random rand = new Random();
 
+        // --- LOGIC PATROL MỚI ---
+        private const int TILE_SIZE_LOGIC = 30; // Kích thước ô logic (lấy từ frmMainGame)
+                                                // 3 ô logic = 3 * 30 = 90 pixel
+        protected readonly float PATROL_DISTANCE_MAX_SQ = (3 * TILE_SIZE_LOGIC) * (3 * TILE_SIZE_LOGIC);
+        // ------------------------
+
         public Monster(float startX, float startY)
         {
             X = startX;
             Y = startY;
-            patrolOrigin = new PointF(X, Y);
-            SetNewPatrolTarget();
+            patrolOrigin = new PointF(X + Width / 2, Y + Height / 2); // Đặt tâm mốc sinh ra
+
             State = MonsterState.Idle;
         }
 
@@ -1192,6 +1726,7 @@ namespace Main
             if (game == null) return; // Bảo vệ nếu game context null
 
             float distanceSq = GetDistanceToPlayer(playerX, playerY);
+            float distToOriginSq = GetDistanceToPoint(patrolOrigin); // THÊM: Khoảng cách đến mốc sinh ra
 
             if (State == MonsterState.Hurt)
             {
@@ -1236,8 +1771,12 @@ namespace Main
             }
             else if (State == MonsterState.Chase)
             {
-                State = MonsterState.Patrol;
-                SetNewPatrolTarget(game);
+                // Nếu quái vật đi quá xa mốc sinh ra khi đang chase, nó sẽ quay về tuần tra
+                if (distToOriginSq > PATROL_DISTANCE_MAX_SQ * 2)
+                {
+                    State = MonsterState.Patrol;
+                    patrolTarget = patrolOrigin; // Quay về mốc
+                }
             }
             else if (State == MonsterState.Idle)
             {
@@ -1251,14 +1790,24 @@ namespace Main
             }
             else if (State == MonsterState.Patrol)
             {
-                MoveTowards(game, patrolTarget, patrolSpeed);
-                if (GetDistanceToPoint(patrolTarget) < 10 * 10)
+                // NẾU ĐI QUÁ XA MỐC, ƯU TIÊN QUAY VỀ MỐC
+                if (distToOriginSq > PATROL_DISTANCE_MAX_SQ)
+                {
+                    patrolTarget = patrolOrigin;
+                }
+                // Nếu đã đạt mục tiêu tuần tra, chọn mục tiêu mới trong phạm vi PATROL_DISTANCE_MAX
+                else if (GetDistanceToPoint(patrolTarget) < 10 * 10)
                 {
                     State = MonsterState.Idle;
                 }
             }
 
-            if (State == MonsterState.Chase)
+            // --- THỰC HIỆN DI CHUYỂN DỰ TRÊN TRẠNG THÁI ---
+            if (State == MonsterState.Patrol)
+            {
+                MoveTowards(game, patrolTarget, patrolSpeed);
+            }
+            else if (State == MonsterState.Chase)
             {
                 // Di chuyển về Player Center (playerX + 12.5, playerY + 12.5)
                 MoveTowards(game, new PointF(playerX + 12.5f, playerY + 12.5f), speed);
@@ -1296,6 +1845,29 @@ namespace Main
                 {
                     X += moveX;
                 }
+                else
+                {
+                    // THÊM LOGIC TRƯỢT THEO Y KHI VA CHẠM X
+                    float scaledSlideTolerance = frmMainGame.BASE_SLIDE_TOLERANCE / frmMainGame.RENDER_SCALE;
+                    if (moveY != 0)
+                    {
+                        float slideY = moveY > 0 ? scaledSlideTolerance : -scaledSlideTolerance;
+
+                        RectangleF slideHitboxY = new RectangleF(X + moveX, Y + slideY, Width, Height);
+                        RectangleF scaledSlideHitboxY = new RectangleF(
+                            slideHitboxY.X * frmMainGame.RENDER_SCALE,
+                            slideHitboxY.Y * frmMainGame.RENDER_SCALE,
+                            slideHitboxY.Width * frmMainGame.RENDER_SCALE,
+                            slideHitboxY.Height * frmMainGame.RENDER_SCALE
+                        );
+
+                        if (!game.IsCollidingWithWallScaled(scaledSlideHitboxY))
+                        {
+                            Y += slideY;
+                        }
+                    }
+                }
+
 
                 // 2. Thử di chuyển Y
                 RectangleF nextHitboxY = new RectangleF(X, Y + moveY, Width, Height);
@@ -1311,6 +1883,29 @@ namespace Main
                 {
                     Y += moveY;
                 }
+                else
+                {
+                    // THÊM LOGIC TRƯỢT THEO X KHI VA CHẠM Y
+                    float scaledSlideTolerance = frmMainGame.BASE_SLIDE_TOLERANCE / frmMainGame.RENDER_SCALE;
+                    if (moveX != 0)
+                    {
+                        float slideX = moveX > 0 ? scaledSlideTolerance : -scaledSlideTolerance;
+
+                        RectangleF slideHitboxX = new RectangleF(X + slideX, Y + moveY, Width, Height);
+                        RectangleF scaledSlideHitboxX = new RectangleF(
+                            slideHitboxX.X * frmMainGame.RENDER_SCALE,
+                            slideHitboxX.Y * frmMainGame.RENDER_SCALE,
+                            slideHitboxX.Width * frmMainGame.RENDER_SCALE,
+                            slideHitboxX.Height * frmMainGame.RENDER_SCALE
+                        );
+
+                        if (!game.IsCollidingWithWallScaled(scaledSlideHitboxX))
+                        {
+                            X += slideX;
+                        }
+                    }
+                }
+
 
                 // 3. Cập nhật hướng nhìn
                 if (Math.Abs(dx) > Math.Abs(dy))
@@ -1326,36 +1921,31 @@ namespace Main
 
         protected float GetDistanceToPoint(PointF target)
         {
-            float dx = target.X - (X + Width / 2);
-            float dy = target.Y - (Y + Height / 2);
+            float monsterCenterX = X + Width / 2;
+            float monsterCenterY = Y + Height / 2;
+            float dx = target.X - monsterCenterX;
+            float dy = target.Y - monsterCenterY;
             return (dx * dx) + (dy * dy);
         }
 
-        // --- HÀM TẠO MỤC TIÊU PATROL KHÔNG KIỂM TRA VA CHẠM (chỉ dùng cho init) ---
-        protected void SetNewPatrolTarget()
-        {
-            int range = 150;
-            float targetX = patrolOrigin.X + rand.Next(-range, range);
-            float targetY = patrolOrigin.Y + rand.Next(-range, range);
-            patrolTarget = new PointF(targetX, targetY);
-        }
-
-        // --- HÀM TẠO MỤC TIÊU PATROL CÓ KIỂM TRA VA CHẠM ---
+        // --- HÀM TẠO MỤC TIÊU PATROL CÓ KIỂM TRA VA CHẠM (Sửa lại để tuần tra trong phạm vi 3 ô) ---
         protected void SetNewPatrolTarget(frmMainGame game)
         {
             if (game == null) return;
 
-            int range = 150;
+            // 3 ô logic = 90 pixel
+            int range = (int)Math.Sqrt(PATROL_DISTANCE_MAX_SQ);
             // Hitbox logic
             RectangleF testHitbox = new RectangleF(X, Y, Width, Height);
 
             for (int i = 0; i < 5; i++)
             {
+                // Lấy mục tiêu ngẫu nhiên trong phạm vi 3 ô (90px) từ mốc spawn
                 float targetX = patrolOrigin.X + rand.Next(-range, range);
                 float targetY = patrolOrigin.Y + rand.Next(-range, range);
 
-                testHitbox.X = targetX;
-                testHitbox.Y = targetY;
+                testHitbox.X = targetX - Width / 2; // Căn chỉnh Hitbox từ tâm
+                testHitbox.Y = targetY - Height / 2;
 
                 // Scaled Hitbox (SỬA LỖI CS0176)
                 RectangleF scaledTestHitbox = new RectangleF(
@@ -1365,8 +1955,8 @@ namespace Main
                     testHitbox.Height * frmMainGame.RENDER_SCALE
                 );
 
-                // CHỈ kiểm tra va chạm.
-                if (!game.IsCollidingWithWallScaled(scaledTestHitbox))
+                // CHỈ kiểm tra va chạm VÀ nằm trong phạm vi 3 ô từ mốc
+                if (!game.IsCollidingWithWallScaled(scaledTestHitbox) && GetDistanceToPoint(new PointF(targetX, targetY)) <= PATROL_DISTANCE_MAX_SQ)
                 {
                     patrolTarget = new PointF(targetX, targetY);
                     return;
@@ -1428,12 +2018,12 @@ namespace Main
             {
                 using (imageToDraw)
                 {
-                    // LƯU Ý: DrawWidth/Height được cố định hoặc dựa trên kích thước Vẽ lớn hơn Hitbox.
-                    // Vẫn cần dùng X, Y đã được SCALE
-                    int drawWidth = Width;
-                    int drawHeight = Height;
-                    float drawX = X * scale - (drawWidth - Width) / 2; // Dùng float X
-                    float drawY = Y * scale - (drawHeight - Height) / 2; // Dùng float Y
+                    // LƯU Ý: Đây là hàm trừu tượng, nên kích thước vẽ cần được định nghĩa lại trong các lớp con
+                    // Giữ nguyên logic vẽ (chỉ thay đổi kích thước và vị trí trong lớp con)
+                    int drawWidth = Width * scale; // Kích thước vẽ mặc định (Scaled Hitbox)
+                    int drawHeight = Height * scale;
+                    float drawX = X * scale; // Vị trí vẽ (Scaled Hitbox X)
+                    float drawY = Y * scale; // Vị trí vẽ (Scaled Hitbox Y)
                     canvas.DrawImage(imageToDraw, drawX, drawY, drawWidth, drawHeight);
                 }
             }
@@ -1469,7 +2059,10 @@ namespace Main
 
     public class Slime : Monster
     {
-        // ... [Nội dung Slime không đổi] ...
+        // Kích thước vẽ Slime (tùy chỉnh)
+        private const int SLIME_DRAW_WIDTH = 80;
+        private const int SLIME_DRAW_HEIGHT = 80;
+
         public Slime(float startX, float startY) : base(startX, startY)
         {
             SetStats();
@@ -1478,8 +2071,8 @@ namespace Main
 
         protected override void SetStats()
         {
-            Width = 40;
-            Height = 40;
+            Width = 40; // Hitbox logic
+            Height = 40; // Hitbox logic
             MaxHealth = 50;
             Health = MaxHealth;
             attackDamage = 5;
@@ -1518,7 +2111,7 @@ namespace Main
             deathAnim.LoadImages(Path.Combine(deathRoot, "Back"), Path.Combine(deathRoot, "Front"), Path.Combine(deathRoot, "Left"), Path.Combine(deathRoot, "Right"));
         }
 
-        // CHỈNH SỬA DRAW ĐỂ CHẤP NHẬN SCALE VÀ VẼ LỚN HƠN
+        // CHỈNH SỬA DRAW ĐỂ CHẤP NHẬN SCALE VÀ VẼ LỚN HƠN (Đã sửa lỗi tỷ lệ)
         public override void Draw(Graphics canvas, int scale)
         {
             Image imageToDraw = null;
@@ -1553,12 +2146,12 @@ namespace Main
             {
                 using (imageToDraw)
                 {
-                    // LƯU Ý: Slime vẽ lớn hơn hitbox 40x40. Kích thước vẽ không cần scale 3x
-                    int drawWidth = 80;
-                    int drawHeight = 80;
-                    // VỊ TRÍ DRAW ĐÃ ĐƯỢC SCALE
-                    float drawX = X * scale - (drawWidth - Width) / 2;
-                    float drawY = Y * scale - (drawHeight - Height) / 2;
+                    // TÍNH TOÁN VỊ TRÍ VẼ ĐỂ CĂN GIỮA 80x80 VỚI HITBOX 40x40 ĐÃ SCALE
+                    int drawWidth = SLIME_DRAW_WIDTH;
+                    int drawHeight = SLIME_DRAW_HEIGHT;
+                    // VỊ TRÍ DRAW ĐÃ ĐƯỢC SCALE, CĂN CHỈNH: X * scale - (DrawSize - HitboxScaled) / 2
+                    float drawX = X * scale - (drawWidth - Width * scale) / 2f;
+                    float drawY = Y * scale - (drawHeight - Height * scale) / 2f;
                     canvas.DrawImage(imageToDraw, drawX, drawY, drawWidth, drawHeight);
                 }
             }
@@ -1576,7 +2169,10 @@ namespace Main
 
     public class Orc : Monster
     {
-        // ... [Nội dung Orc không đổi] ...
+        // Kích thước vẽ Orc (tùy chỉnh)
+        private const int ORC_DRAW_WIDTH = 110;
+        private const int ORC_DRAW_HEIGHT = 110;
+
         public Orc(float startX, float startY) : base(startX, startY)
         {
             SetStats();
@@ -1585,8 +2181,8 @@ namespace Main
 
         protected override void SetStats()
         {
-            Width = 45;
-            Height = 45;
+            Width = 45; // Hitbox logic
+            Height = 45; // Hitbox logic
             MaxHealth = 120;
             Health = MaxHealth;
             attackDamage = 15;
@@ -1625,7 +2221,7 @@ namespace Main
             deathAnim.LoadImages(Path.Combine(deathRoot, "Back"), Path.Combine(deathRoot, "Front"), Path.Combine(deathRoot, "Left"), Path.Combine(deathRoot, "Right"));
         }
 
-        // CHỈNH SỬA DRAW ĐỂ CHẤP NHẬN SCALE VÀ VẼ LỚN HƠN
+        // CHỈNH SỬA DRAW ĐỂ CHẤP NHẬN SCALE VÀ VẼ LỚN HƠN (Đã sửa lỗi tỷ lệ)
         public override void Draw(Graphics canvas, int scale)
         {
             Image imageToDraw = null;
@@ -1660,12 +2256,12 @@ namespace Main
             {
                 using (imageToDraw)
                 {
-                    // LƯU Ý: Orc vẽ lớn hơn hitbox 45x45
-                    int drawWidth = 110;
-                    int drawHeight = 110;
-                    // VỊ TRÍ DRAW ĐÃ ĐƯỢC SCALE
-                    float drawX = X * scale - (drawWidth - Width) / 2;
-                    float drawY = Y * scale - (drawHeight - Height) / 2;
+                    // TÍNH TOÁN VỊ TRÍ VẼ ĐỂ CĂN GIỮA 110x110 VỚI HITBOX 45x45 ĐÃ SCALE
+                    int drawWidth = ORC_DRAW_WIDTH;
+                    int drawHeight = ORC_DRAW_HEIGHT;
+                    // VỊ TRÍ DRAW ĐÃ ĐƯỢC SCALE, CĂN CHỈNH: X * scale - (DrawSize - HitboxScaled) / 2
+                    float drawX = X * scale - (drawWidth - Width * scale) / 2f;
+                    float drawY = Y * scale - (drawHeight - Height * scale) / 2f;
                     canvas.DrawImage(imageToDraw, drawX, drawY, drawWidth, drawHeight);
                 }
             }
@@ -1686,6 +2282,11 @@ namespace Main
         private int castCooldown = 0;
         private int castCooldownDuration = 333;
 
+        // Kích thước vẽ Boss (tùy chỉnh)
+        private const int BOSS_DRAW_WIDTH = 150;
+        private const int BOSS_DRAW_HEIGHT = 150;
+
+
         // ... [Nội dung Boss không đổi] ...
         public Boss(float startX, float startY) : base(startX, startY)
         {
@@ -1695,8 +2296,8 @@ namespace Main
 
         protected override void SetStats()
         {
-            Width = 100;
-            Height = 100;
+            Width = 100; // Hitbox logic
+            Height = 100; // Hitbox logic
             MaxHealth = 500;
             Health = MaxHealth;
             attackDamage = 20;
@@ -1877,7 +2478,7 @@ namespace Main
             this.facingDirection = "down";
         }
 
-        // CHỈNH SỬA DRAW ĐỂ CHẤP NHẬN SCALE VÀ VẼ LỚN HƠN
+        // CHỈNH SỬA DRAW ĐỂ CHẤP NHẬN SCALE VÀ VẼ LỚN HƠN (Đã sửa lỗi tỷ lệ)
         public override void Draw(Graphics canvas, int scale)
         {
             Image imageToDraw = null;
@@ -1913,11 +2514,12 @@ namespace Main
             {
                 using (imageToDraw)
                 {
-                    int drawWidth = 150;
-                    int drawHeight = 150;
-                    // VỊ TRÍ DRAW ĐÃ ĐƯỢC SCALE
-                    float drawX = X * scale - (drawWidth - Width) / 2;
-                    float drawY = Y * scale - (drawHeight - Height) / 2;
+                    // TÍNH TOÁN VỊ TRÍ VẼ ĐỂ CĂN GIỮA 150x150 VỚI HITBOX 100x100 ĐÃ SCALE
+                    int drawWidth = BOSS_DRAW_WIDTH;
+                    int drawHeight = BOSS_DRAW_HEIGHT;
+                    // VỊ TRÍ DRAW ĐÃ ĐƯỢC SCALE, CĂN CHỈNH: X * scale - (DrawSize - HitboxScaled) / 2
+                    float drawX = X * scale - (drawWidth - Width * scale) / 2f;
+                    float drawY = Y * scale - (drawHeight - Height * scale) / 2f;
                     canvas.DrawImage(imageToDraw, drawX, drawY, drawWidth, drawHeight);
                 }
             }

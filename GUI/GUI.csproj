@@ -155,6 +155,9 @@
     <EmbeddedResource Include="FormsAll\frmMain.resx">
       <DependentUpon>frmMain.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="FormsAll\frmMainGame.resx">
+      <DependentUpon>frmMainGame.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="FormsAll\frmMenu.resx">
       <DependentUpon>frmMenu.cs</DependentUpon>
     </EmbeddedResource>
@@ -1910,6 +1913,57 @@
     <Content Include="ImgSource\Structure\Flame_Style\Flame_objects\64\white_crystal_light_shadow5.png" />
     <Content Include="ImgSource\Structure\Flame_Style\Flame_objects\64\white_crystal_vertical1.png" />
     <Content Include="ImgSource\Structure\Flame_Style\Flame_objects\64\white_crystal_vertical3.png" />
+    <Content Include="ImgSource\Structure\Portal\Active\Purple Portal Sprite Sheet_13.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Active\Purple Portal Sprite Sheet_14.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Active\Purple Portal Sprite Sheet_15.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Active\Purple Portal Sprite Sheet_16.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Active\Purple Portal Sprite Sheet_17.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Active\Purple Portal Sprite Sheet_18.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Active\Purple Portal Sprite Sheet_19.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Active\Purple Portal Sprite Sheet_20.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Active\Purple Portal Sprite Sheet_21.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Default\Purple Portal Sprite Sheet_0.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Default\Purple Portal Sprite Sheet_1.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Default\Purple Portal Sprite Sheet_2.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Default\Purple Portal Sprite Sheet_3.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Default\Purple Portal Sprite Sheet_4.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Default\Purple Portal Sprite Sheet_5.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Default\Purple Portal Sprite Sheet_6.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Structure\Portal\Default\Purple Portal Sprite Sheet_7.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="ImgSource\Structure\Torch\Torch_1\fire_animation_0.png" />
     <Content Include="ImgSource\Structure\Torch\Torch_1\fire_animation_1.png" />
     <Content Include="ImgSource\Structure\Torch\Torch_1\fire_animation_10.png" />
@@ -2452,11 +2506,9 @@
     <Error Condition="!Exists('..\packages\EntityFramework.6.5.1\build\EntityFramework.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\EntityFramework.6.5.1\build\EntityFramework.targets'))" />
   </Target>
   <Import Project="..\packages\EntityFramework.6.5.1\build\EntityFramework.targets" Condition="Exists('..\packages\EntityFramework.6.5.1\build\EntityFramework.targets')" />
-
-<ItemGroup>
-  <Content Include="ImgSource\**\*">
-    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-  </Content>
-</ItemGroup>
-  
+  <ItemGroup>
+    <Content Include="ImgSource\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

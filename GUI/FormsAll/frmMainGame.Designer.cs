@@ -34,20 +34,20 @@
             // 
             // gameTimer
             // 
-            this.gameTimer.Enabled = true; // Đảm bảo Timer tự động chạy
-            this.gameTimer.Interval = 30; // 33 FPS
+            this.gameTimer.Enabled = true;
+            this.gameTimer.Interval = 30;
             this.gameTimer.Tick += new System.EventHandler(this.GameTimer_Tick);
             // 
             // frmMainGame
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1856, 854); // Kích thước mới
-            this.DoubleBuffered = true; // Quan trọng để giảm nhấp nháy khi vẽ game
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle; // Khóa kích thước form
-            this.MaximizeBox = false; // Không cho phép phóng to
-            this.MinimizeBox = false; // Không cho phép thu nhỏ
-            this.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.ClientSize = new System.Drawing.Size(1073, 1055);
+            this.DoubleBuffered = true;
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            this.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
             this.Name = "frmMainGame";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "frmMainGame";

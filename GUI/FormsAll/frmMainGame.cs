@@ -729,31 +729,31 @@ namespace Main
             foreach (var monster in monsters.ToList())
             {
                 monster.Update(this, playerX, playerY, spellEffects);
-                // --- THÊM: XỬ LÝ SÁT THƯƠNG KHI VA CHẠM (BODY DAMAGE) ---
-                RectangleF playerHitbox = new RectangleF(playerX, playerY, playerWidth, playerHeight);
+                //// --- THÊM: XỬ LÝ SÁT THƯƠNG KHI VA CHẠM (BODY DAMAGE) ---
+                //RectangleF playerHitbox = new RectangleF(playerX, playerY, playerWidth, playerHeight);
 
-                // Chỉ gây sát thương va chạm nếu:
-                // 1. Quái vật không thân thiện (Friendly)
-                // 2. Quái vật chưa chết (Dead)
-                // 3. Quái vật không đang bị thương (Hurt) (để tránh nhân đôi sát thương)
-                if (monster.State != Monster.MonsterState.Friendly &&
-                    monster.State != Monster.MonsterState.Dead &&
-                    monster.State != Monster.MonsterState.Hurt)
-                {
-                    // Kiểm tra va chạm vật lý
-                    if (playerHitbox.IntersectsWith(monster.Hitbox))
-                    {
-                        // Lấy sát thương của quái vật (dựa trên tệp bạn cung cấp)
-                        int collisionDamage = 5; // Mặc định
-                        if (monster is Slime) collisionDamage = 5; //
-                        else if (monster is Orc) collisionDamage = 10; //
-                        else if (monster is Boss) collisionDamage = 20; //
+                //// Chỉ gây sát thương va chạm nếu:
+                //// 1. Quái vật không thân thiện (Friendly)
+                //// 2. Quái vật chưa chết (Dead)
+                //// 3. Quái vật không đang bị thương (Hurt) (để tránh nhân đôi sát thương)
+                //if (monster.State != Monster.MonsterState.Friendly &&
+                //    monster.State != Monster.MonsterState.Dead &&
+                //    monster.State != Monster.MonsterState.Hurt)
+                //{
+                //    // Kiểm tra va chạm vật lý
+                //    if (playerHitbox.IntersectsWith(monster.Hitbox))
+                //    {
+                //        // Lấy sát thương của quái vật (dựa trên tệp bạn cung cấp)
+                //        int collisionDamage = 5; // Mặc định
+                //        if (monster is Slime) collisionDamage = 5; //
+                //        else if (monster is Orc) collisionDamage = 10; //
+                //        else if (monster is Boss) collisionDamage = 20; //
 
-                        // Gọi hàm ApplyDamageToPlayer
-                        // Gây 1/4 sát thương đòn đánh (hoặc 1, lấy số lớn hơn) khi va chạm
-                        ApplyDamageToPlayer(Math.Max(1, collisionDamage / 4));
-                    }
-                }
+                //        // Gọi hàm ApplyDamageToPlayer
+                //        // Gây 1/4 sát thương đòn đánh (hoặc 1, lấy số lớn hơn) khi va chạm
+                //        ApplyDamageToPlayer(Math.Max(1, collisionDamage / 4));
+                //    }
+                //}
                 if (monster.State == Monster.MonsterState.Dead && monster.deathAnim.IsFinished)
                 {
                     float monsterCenterX = monster.X + monster.Width / 2;

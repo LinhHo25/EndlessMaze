@@ -108,6 +108,14 @@ namespace GUI.GameEntities
             {
                 if (attackAnim.IsFinished)
                 {
+                    // --- THÊM: Gây sát thương KHI HOẠT ẢNH KẾT THÚC ---
+                    // (Kiểm tra xem player còn trong tầm không)
+                    float playerCenterX_now = playerX + 5;
+                    float playerCenterY_now = playerY + 5;
+                    if (GetDistanceToPlayer(playerCenterX_now, playerCenterY_now) <= attackRange * attackRange)
+                    {
+                        game.ApplyDamageToPlayer(this.attackDamage);
+                    }
                     State = MonsterState.Chase; // Quay lại truy đuổi
                 }
                 return; // Không làm gì khác khi đang tấn công
@@ -145,7 +153,7 @@ namespace GUI.GameEntities
                         State = MonsterState.Attack;
                         attackAnim.ResetFrame();
                         // GỌI HÀM GÂY SÁT THƯƠNG CHO PLAYER
-                        game.ApplyDamageToPlayer(this.attackDamage);
+                        //game.ApplyDamageToPlayer(this.attackDamage);
                         attackCooldown = attackCooldownDuration;
                     }
                 }

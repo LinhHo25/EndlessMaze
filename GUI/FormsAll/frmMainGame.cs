@@ -819,6 +819,24 @@ namespace Main
             foreach (var spell in spellEffects.ToList())
             {
                 spell.Update();
+
+                // --- SỬA: THÊM LOGIC GÂY SÁT THƯƠNG TỪ SKILL BOSS ---
+                RectangleF playerHitbox = new RectangleF(playerX, playerY, playerWidth, playerHeight);
+
+                // Kiểm tra va chạm ngay khi SpellEffect còn hoạt động
+                if (!spell.IsFinished && playerHitbox.IntersectsWith(spell.Hitbox))
+                {
+                    // Lấy sát thương của Boss (Boss Damage = 20)
+                    int bossDamage = 20;
+                    ApplyDamageToPlayer(bossDamage);
+
+                    // Xóa SpellEffect ngay lập tức sau khi gây sát thương
+                    // Cần gọi Dispose() để giải phóng tài nguyên ảnh
+                    spell.Dispose();
+                    spellEffects.Remove(spell);
+                    continue; // Chuyển sang SpellEffect tiếp theo
+                }
+
                 if (spell.IsFinished)
                 {
                     spellEffects.Remove(spell);

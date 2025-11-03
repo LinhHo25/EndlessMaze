@@ -185,7 +185,14 @@
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
     </Compile>
+    <None Include="Fonts\ANDALAS.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Fonts\Pixellettersfull-BnJ5.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
@@ -2552,6 +2559,8 @@
     <Content Include="ImgSource\Structure\Water_Style\Objects_separately_2\64\Yellow-white-gray_shell1_shadow1.png" />
     <Content Include="ImgSource\Structure\Water_Style\Objects_separately_2\64\Yellow-white-gray_shell1_shadow2.png" />
     <Content Include="ImgSource\Structure\Water_Style\Objects_separately_2\64\Yellow-white-gray_shell1_shadow3.png" />
+    <None Include="Resources\download %281%29.jpg" />
+    <None Include="Resources\download %282%29.jpg" />
     <Content Include="sound effect\compressed\Background sound\Tiếng nhạc nền chính.mp3" />
     <Content Include="sound effect\compressed\Background sound\tiếng nhạc nền map lửa.mp3" />
     <Content Include="sound effect\compressed\Background sound\Tiếng nền map lửa.mp3" />

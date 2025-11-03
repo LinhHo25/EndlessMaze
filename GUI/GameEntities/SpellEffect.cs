@@ -14,6 +14,8 @@ namespace GUI.GameEntities
         // Vị trí logic 1:1
         public float X, Y;
         public int Width, Height;
+        // --- THÊM: Hitbox công khai ---
+        public RectangleF Hitbox => new RectangleF(X, Y, Width, Height);
         public AnimationActivity Anim;
         public bool IsFinished => Anim.IsFinished;
         private string direction = "down";

@@ -1863,23 +1863,57 @@
     <Content Include="ImgSource\Item\Weapon\B\icon_32_2_23.png" />
     <Content Include="ImgSource\Item\Weapon\C\icon_32_2_17.png" />
     <Content Include="ImgSource\Item\Weapon\D\icon_32_2_09.png" />
-    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_13.png" />
-    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_14.png" />
-    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_15.png" />
-    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_16.png" />
-    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_17.png" />
-    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_18.png" />
-    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_19.png" />
-    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_20.png" />
-    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_21.png" />
-    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_0.png" />
-    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_1.png" />
-    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_2.png" />
-    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_3.png" />
-    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_4.png" />
-    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_5.png" />
-    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_6.png" />
-    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_7.png" />
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_13.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_14.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_15.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_16.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_17.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_18.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_19.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_20.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Active\Purple Portal Sprite Sheet_21.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_0.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_1.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_2.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_3.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_4.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_5.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_6.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ImgSource\Portal\Default\Purple Portal Sprite Sheet_7.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="ImgSource\Structure\Button\lever_animation_1.png" />
     <Content Include="ImgSource\Structure\Button\lever_animation_2.png" />
     <Content Include="ImgSource\Structure\Button\lever_animation_3.png" />

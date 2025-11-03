@@ -2561,6 +2561,7 @@
     <Content Include="ImgSource\Structure\Water_Style\Objects_separately_2\64\Yellow-white-gray_shell1_shadow3.png" />
     <None Include="Resources\download %281%29.jpg" />
     <None Include="Resources\download %282%29.jpg" />
+    <None Include="Resources\download %287%29.jpg" />
     <Content Include="sound effect\compressed\Background sound\Tiếng nhạc nền chính.mp3" />
     <Content Include="sound effect\compressed\Background sound\tiếng nhạc nền map lửa.mp3" />
     <Content Include="sound effect\compressed\Background sound\Tiếng nền map lửa.mp3" />

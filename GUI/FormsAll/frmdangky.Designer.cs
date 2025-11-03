@@ -111,6 +111,7 @@ namespace Main
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.BackgroundImage = global::GUI.Properties.Resources.download__1_;
             this.ClientSize = new System.Drawing.Size(410, 330);
             this.Controls.Add(this.btnRegister);
             this.Controls.Add(this.btnLogin);
@@ -125,7 +126,6 @@ namespace Main
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Đăng Nhập / Đăng Ký Tài Khoản";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.frmDangKy_FormClosed);
-           
             this.ResumeLayout(false);
             this.PerformLayout();
 

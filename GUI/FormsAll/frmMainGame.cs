@@ -828,7 +828,7 @@ namespace Main
                 {
                     // Lấy sát thương của Boss (Boss Damage = 20)
                     int bossDamage = 20;
-                    ApplyDamageToPlayer(bossDamage);
+                    ApplyDamageToPlayer(bossDamage); // <--- DÒNG GÂY SÁT THƯƠNG TỪ CHIÊU THỨC
 
                     // Xóa SpellEffect ngay lập tức sau khi gây sát thương
                     // Cần gọi Dispose() để giải phóng tài nguyên ảnh
@@ -1961,159 +1961,169 @@ namespace Main
             _autoPilotTarget = new PointF(targetX, targetY);
         }
 
-        #region A* Pathfinding Engine
+        // --- BẮT ĐẦU KHỐI CODE A* (A-STAR) ---
+        // (Dán khối code này vào bên trong lớp frmMainGame)
 
-        /// <summary>
-        /// Một class helper cho thuật toán A*
-        /// </summary>
-        private class PathNode
+        // --- LỚP HỖ TRỢ THUẬT TOÁN A* (A-STAR) ---
+        public class PathNode
         {
-            public Point Position { get; set; } // Vị trí Tile (X, Y)
-            public int G { get; set; } // Chi phí từ điểm bắt đầu
-            public int H { get; set; } // Chi phí heuristic (ước tính) đến điểm cuối
-            public int F => G + H; // Tổng chi phí
-            public PathNode Parent { get; set; }
-        }
+            public int X { get; }
+            public int Y { get; }
 
-        /// <summary>
-        /// Chuyển đổi tọa độ Pixel (World) sang tọa độ Tile (Grid)
-        /// </summary>
-        public Point WorldToTile(PointF worldPosition)
-        {
-            int tileX = (int)(worldPosition.X / TILE_SIZE);
-            int tileY = (int)(worldPosition.Y / TILE_SIZE);
-            return new Point(tileX, tileY);
-        }
+            public int G_Cost; // Chi phí từ điểm bắt đầu
+            public int H_Cost; // Chi phí heuristic (ước lượng) đến điểm cuối
+            public int F_Cost => G_Cost + H_Cost; // Tổng chi phí
 
-        /// <summary>
-        /// Chuyển đổi tọa độ Tile (Grid) sang tọa độ Pixel (World) - lấy TÂM của ô
-        /// </summary>
-        public PointF TileToWorld(Point tilePosition)
-        {
-            float worldX = (tilePosition.X * TILE_SIZE) + (TILE_SIZE / 2f);
-            float worldY = (tilePosition.Y * TILE_SIZE) + (TILE_SIZE / 2f);
-            return new PointF(worldX, worldY);
-        }
+            public PathNode Parent;
 
-        /// <summary>
-        /// Tính heuristic (Manhattan distance)
-        /// </summary>
-        private int GetHeuristic(Point a, Point b)
-        {
-            return Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
-        }
-
-        /// <summary>
-        /// Tìm một ô ngẫu nhiên có thể đi được trong mê cung
-        /// </summary>
-        public Point FindRandomWalkableTile()
-        {
-            int x, y;
-            do
+            public PathNode(int x, int y)
             {
-                x = _lootRandom.Next(1, MAZE_LOGIC_WIDTH - 1);
-                y = _lootRandom.Next(1, MAZE_LOGIC_HEIGHT - 1);
+                X = x;
+                Y = y;
+                G_Cost = int.MaxValue;
+                Parent = null;
             }
-            while (_mazeGrid[y, x] == (int)GameObjectType.Wall); // Lặp lại nếu là tường
-            return new Point(x, y);
+
+            // Dùng để so sánh 2 node
+            public override bool Equals(object obj)
+            {
+                return obj is PathNode node && X == node.X && Y == node.Y;
+            }
+
+            public override int GetHashCode()
+            {
+                return X.GetHashCode() ^ Y.GetHashCode();
+            }
         }
 
+
         /// <summary>
-        /// Thuật toán A* (A-Star) tìm đường đi
+        /// Tìm đường đi ngắn nhất bằng thuật toán A*
         /// </summary>
-        /// <param name="startTile">Tile bắt đầu (quái vật)</param>
-        /// <param name="endTile">Tile kết thúc (người chơi)</param>
-        /// <returns>Một danh sách các Tile (Point) để đi theo</returns>
+        /// <param name="startTile">Tọa độ ô logic bắt đầu</param>
+        /// <param name="endTile">Tọa độ ô logic kết thúc</param>
+        /// <returns>Danh sách các ô logic (Point) của đường đi, hoặc null nếu không tìm thấy</returns>
         public List<Point> FindPath(Point startTile, Point endTile)
         {
-            List<Point> path = new List<Point>();
+            // 1. Khởi tạo danh sách Mở (Open) và Đóng (Closed)
             List<PathNode> openList = new List<PathNode>();
-            List<PathNode> closedList = new List<PathNode>();
+            HashSet<PathNode> closedList = new HashSet<PathNode>();
 
-            PathNode startNode = new PathNode
+            // Node lưới (grid) để lưu trữ chi phí
+            PathNode[,] nodeGrid = new PathNode[MAZE_LOGIC_HEIGHT, MAZE_LOGIC_WIDTH];
+            for (int y = 0; y < MAZE_LOGIC_HEIGHT; y++)
             {
-                Position = startTile,
-                G = 0,
-                H = GetHeuristic(startTile, endTile)
-            };
+                for (int x = 0; x < MAZE_LOGIC_WIDTH; x++)
+                {
+                    nodeGrid[y, x] = new PathNode(x, y);
+                }
+            }
+
+            // Đảm bảo start/end nằm trong biên
+            if (startTile.Y < 0 || startTile.Y >= MAZE_LOGIC_HEIGHT || startTile.X < 0 || startTile.X >= MAZE_LOGIC_WIDTH ||
+                endTile.Y < 0 || endTile.Y >= MAZE_LOGIC_HEIGHT || endTile.X < 0 || endTile.X >= MAZE_LOGIC_WIDTH)
+            {
+                return null; // Nằm ngoài biên
+            }
+
+            // Kiểm tra nếu điểm bắt đầu hoặc kết thúc là tường (Giả định GameObjectType.Wall là 0)
+            if (_mazeGrid[startTile.Y, startTile.X] == (int)GameObjectType.Wall ||
+                _mazeGrid[endTile.Y, endTile.X] == (int)GameObjectType.Wall)
+            {
+                return null; // Không thể tìm đường từ/đến một bức tường
+            }
+
+            PathNode startNode = nodeGrid[startTile.Y, startTile.X];
+            PathNode endNode = nodeGrid[endTile.Y, endTile.X];
+            startNode.G_Cost = 0;
+            startNode.H_Cost = CalculateHeuristic(startNode, endNode);
             openList.Add(startNode);
 
+            // 2. Vòng lặp tìm đường
             while (openList.Count > 0)
             {
-                // Tìm node có F thấp nhất trong openList
-                PathNode currentNode = openList.OrderBy(n => n.F).First();
-
-                // Nếu là node đích -> Xong
-                if (currentNode.Position == endTile)
+                // Lấy node có F_Cost thấp nhất từ Open List
+                PathNode currentNode = openList[0];
+                for (int i = 1; i < openList.Count; i++)
                 {
-                    PathNode temp = currentNode;
-                    while (temp != null)
+                    if (openList[i].F_Cost < currentNode.F_Cost || (openList[i].F_Cost == currentNode.F_Cost && openList[i].H_Cost < currentNode.H_Cost))
                     {
-                        path.Add(temp.Position);
-                        temp = temp.Parent;
+                        currentNode = openList[i];
                     }
-                    path.Reverse();
-                    return path; // Trả về đường đi (đã đảo ngược)
                 }
 
-                // Chuyển node hiện tại sang closedList
+                // Chuyển node hiện tại từ Open sang Closed
                 openList.Remove(currentNode);
                 closedList.Add(currentNode);
 
-                // Kiểm tra 4 ô xung quanh (không đi chéo)
-                Point[] neighbors = new Point[]
+                // 3. Tìm thấy đích
+                if (currentNode.Equals(endNode))
                 {
-                    new Point(currentNode.Position.X, currentNode.Position.Y + 1), // Dưới
-                    new Point(currentNode.Position.X, currentNode.Position.Y - 1), // Trên
-                    new Point(currentNode.Position.X + 1, currentNode.Position.Y), // Phải
-                    new Point(currentNode.Position.X - 1, currentNode.Position.Y)  // Trái
-                };
+                    return RetracePath(startNode, endNode);
+                }
 
-                foreach (var neighborPos in neighbors)
+                // 4. Kiểm tra các hàng xóm (4 hướng)
+                foreach (Point neighborPoint in GetNeighbors(currentNode))
                 {
-                    // Kiểm tra 1: Nằm trong biên
-                    if (neighborPos.X < 0 || neighborPos.X >= MAZE_LOGIC_WIDTH ||
-                        neighborPos.Y < 0 || neighborPos.Y >= MAZE_LOGIC_HEIGHT)
-                        continue;
+                    PathNode neighbor = nodeGrid[neighborPoint.Y, neighborPoint.X];
 
-                    // Kiểm tra 2: Có phải là tường không
-                    if (_mazeGrid[neighborPos.Y, neighborPos.X] == (int)GameObjectType.Wall)
-                        continue;
-
-                    // Kiểm tra 3: Đã có trong closedList chưa
-                    if (closedList.Any(n => n.Position == neighborPos))
-                        continue;
-
-                    // Tính G mới
-                    int newG = currentNode.G + 1;
-
-                    // Kiểm tra 4: Đã có trong openList chưa
-                    PathNode neighborNode = openList.FirstOrDefault(n => n.Position == neighborPos);
-                    if (neighborNode == null)
+                    // Bỏ qua nếu là tường hoặc đã nằm trong Closed List
+                    if (_mazeGrid[neighbor.Y, neighbor.X] == (int)GameObjectType.Wall || closedList.Contains(neighbor))
                     {
-                        // Chưa có -> Thêm vào openList
-                        neighborNode = new PathNode
-                        {
-                            Position = neighborPos,
-                            G = newG,
-                            H = GetHeuristic(neighborPos, endTile),
-                            Parent = currentNode
-                        };
-                        openList.Add(neighborNode);
+                        continue;
                     }
-                    else if (newG < neighborNode.G)
+
+                    // Tính chi phí mới
+                    int tentative_G_Cost = currentNode.G_Cost + 10; // 10 là chi phí di chuyển sang 1 ô
+
+                    if (tentative_G_Cost < neighbor.G_Cost)
                     {
-                        // Đã có nhưng đường này tốt hơn -> Cập nhật G và Parent
-                        neighborNode.G = newG;
-                        neighborNode.Parent = currentNode;
+                        neighbor.Parent = currentNode;
+                        neighbor.G_Cost = tentative_G_Cost;
+                        neighbor.H_Cost = CalculateHeuristic(neighbor, endNode);
+
+                        if (!openList.Contains(neighbor))
+                        {
+                            openList.Add(neighbor);
+                        }
                     }
                 }
             }
 
-            return path; // Không tìm thấy đường
+            // Không tìm thấy đường
+            return null;
         }
 
-        #endregion
+        // --- CÁC HÀM PHỤ TRỢ CHO A* ---
+        private List<Point> RetracePath(PathNode startNode, PathNode endNode)
+        {
+            List<Point> path = new List<Point>();
+            PathNode currentNode = endNode;
+            while (currentNode != null && !currentNode.Equals(startNode))
+            {
+                path.Add(new Point(currentNode.X, currentNode.Y));
+                currentNode = currentNode.Parent;
+            }
+            path.Reverse();
+            return path;
+        }
+
+        private int CalculateHeuristic(PathNode a, PathNode b)
+        {
+            // Dùng khoảng cách Manhattan
+            return 10 * (Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y));
+        }
+
+        private IEnumerable<Point> GetNeighbors(PathNode node)
+        {
+            // 4 hướng
+            if (node.X > 0) yield return new Point(node.X - 1, node.Y);
+            if (node.X < MAZE_LOGIC_WIDTH - 1) yield return new Point(node.X + 1, node.Y);
+            if (node.Y > 0) yield return new Point(node.X, node.Y - 1);
+            if (node.Y < MAZE_LOGIC_HEIGHT - 1) yield return new Point(node.X, node.Y + 1);
+        }
+
+        // --- KẾT THÚC KHỐI CODE A* (A-STAR) ---
     }
 }
 

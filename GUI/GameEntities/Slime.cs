@@ -11,24 +11,28 @@ namespace GUI.GameEntities
 {
     public class Slime : Monster
     {
-        // ... [Nội dung Slime không đổi] ...
         public Slime(float startX, float startY) : base(startX, startY)
         {
             SetStats();
             LoadAnimations();
+
+            // SỬA LỖI CONSTRUCTOR: Khởi tạo sau khi SetStats
+            patrolOrigin = new PointF(X + Width / 2, Y + Height / 2);
+            _moveTarget = new PointF(X + Width / 2, Y + Height / 2);
         }
 
         protected override void SetStats()
         {
-            Width = 40;
-            Height = 40;
+            Width = 10; // Hitbox logic nhỏ
+            Height = 10; // Hitbox logic nhỏ
             MaxHealth = 50;
             Health = MaxHealth;
             attackDamage = 5;
             speed = 2.5f;
             patrolSpeed = 1f;
-            attackRange = 30;
-            aggroRange = 220;
+            attackRange = 40 * 40; // Tầm đánh (bình phương)
+            aggroRange = 100 * 100; // Tầm nhìn (bình phương)
+            base.patrolRange = 5 * frmMainGame.TILE_SIZE; // Tầm tuần tra
         }
 
         protected override void LoadAnimations()
@@ -48,7 +52,7 @@ namespace GUI.GameEntities
             runAnim.LoadImages(Path.Combine(runRoot, "Back"), Path.Combine(runRoot, "Front"), Path.Combine(runRoot, "Left"), Path.Combine(runRoot, "Right"));
 
             string attackRoot = Path.Combine(slimeRoot, "Atk");
-            attackAnim = new AnimationActivity(10) { IsLooping = false };
+            attackAnim = new AnimationActivity(5) { IsLooping = false };
             attackAnim.LoadImages(Path.Combine(attackRoot, "Back"), Path.Combine(attackRoot, "Front"), Path.Combine(attackRoot, "Left"), Path.Combine(attackRoot, "Right"));
 
             string hurtRoot = Path.Combine(slimeRoot, "Hurt");
@@ -61,58 +65,25 @@ namespace GUI.GameEntities
         }
 
         // CHỈNH SỬA DRAW ĐỂ CHẤP NHẬN SCALE VÀ VẼ LỚN HƠN
+        // (Ghi đè hàm ảo của Monster)
+        protected override void AdjustDrawSize(ref float drawX, ref float drawY, ref int drawWidth, ref int drawHeight, int scale)
+        {
+            // Kích thước vẽ (pixel) * scale
+            drawWidth = 100; // Kích thước vẽ (pixel)
+            drawHeight = 100; // Kích thước vẽ (pixel)
+
+            // Căn lại theo logic scale
+            // (Vị trí hitbox đã scale) - ( (Kích thước vẽ - Kích thước hitbox đã scale) / 2 )
+            drawX = (X * scale) - ((drawWidth - (Width * scale)) / 2f);
+            drawY = (Y * scale) - ((drawHeight - (Height * scale)) / 2f);
+        }
+
+        // SỬA LỖI: Xóa hàm 'Draw' vì nó đã được xử lý ở lớp Monster
+        /*
         public override void Draw(Graphics canvas, int scale)
         {
-            Image imageToDraw = null;
-            string currentDirection = (State == MonsterState.Friendly) ? "down" : facingDirection;
-
-            switch (State)
-            {
-                case MonsterState.Idle:
-                case MonsterState.Friendly:
-                    imageToDraw = idleAnim.GetNextFrame(currentDirection);
-                    break;
-                case MonsterState.Patrol:
-                    imageToDraw = walkAnim.GetNextFrame(currentDirection);
-                    break;
-                case MonsterState.Chase:
-                    imageToDraw = runAnim.GetNextFrame(currentDirection);
-                    break;
-                case MonsterState.Attack:
-                    imageToDraw = attackAnim.GetNextFrame(currentDirection);
-                    break;
-                case MonsterState.Casting:
-                    break; // Slime không có Cast
-                case MonsterState.Hurt:
-                    imageToDraw = hurtAnim.GetNextFrame(currentDirection);
-                    break;
-                case MonsterState.Dead:
-                    imageToDraw = deathAnim.GetNextFrame(currentDirection);
-                    break;
-            }
-
-            if (imageToDraw != null)
-            {
-                using (imageToDraw)
-                {
-                    // LƯU Ý: Slime vẽ lớn hơn hitbox 40x40. Kích thước vẽ không cần scale 3x
-                    int drawWidth = 80;
-                    int drawHeight = 80;
-                    // VỊ TRÍ DRAW ĐÃ ĐƯỢC SCALE
-                    float drawX = X * scale - (drawWidth - Width) / 2;
-                    float drawY = Y * scale - (drawHeight - Height) / 2;
-                    canvas.DrawImage(imageToDraw, drawX, drawY, drawWidth, drawHeight);
-                }
-            }
-
-            if (State != MonsterState.Idle && State != MonsterState.Patrol && State != MonsterState.Dead && State != MonsterState.Friendly)
-            {
-                DrawHealthBar(canvas, scale);
-            }
-            else if (State == MonsterState.Friendly)
-            {
-                canvas.DrawString("FRIENDLY", new Font(FontFamily.GenericSansSerif, 10, FontStyle.Bold), Brushes.LightGreen, X * scale - 10, Y * scale - 20);
-            }
+           // ... (CODE CŨ BỊ XÓA) ...
         }
+        */
     }
 }

@@ -32,17 +32,16 @@
             this.btnItem = new System.Windows.Forms.Button();
             this.btnStatus = new System.Windows.Forms.Button();
             this.btnEquipment = new System.Windows.Forms.Button();
-            this.btnSaveLoad = new System.Windows.Forms.Button();
             this.btnMainMenu = new System.Windows.Forms.Button();
             this.trackBarVolume = new System.Windows.Forms.TrackBar();
             this.lblVolume = new System.Windows.Forms.Label();
+            this.btnClose = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarVolume)).BeginInit();
             this.SuspendLayout();
             // 
             // lblPaused
             // 
             this.lblPaused.Dock = System.Windows.Forms.DockStyle.Top;
-            this.lblPaused.Location = new System.Drawing.Point(0, 0);
             this.lblPaused.Font = new System.Drawing.Font("Arial", 16F, System.Drawing.FontStyle.Bold);
             this.lblPaused.Location = new System.Drawing.Point(0, 0);
             this.lblPaused.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
@@ -52,12 +51,11 @@
             this.lblPaused.TabIndex = 0;
             this.lblPaused.Text = "PAUSED";
             this.lblPaused.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-  
             // 
             // btnItem
             // 
             this.btnItem.Location = new System.Drawing.Point(56, 74);
-            this.btnItem.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.btnItem.Margin = new System.Windows.Forms.Padding(4);
             this.btnItem.Name = "btnItem";
             this.btnItem.Size = new System.Drawing.Size(267, 49);
             this.btnItem.TabIndex = 1;
@@ -68,7 +66,7 @@
             // btnStatus
             // 
             this.btnStatus.Location = new System.Drawing.Point(56, 130);
-            this.btnStatus.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.btnStatus.Margin = new System.Windows.Forms.Padding(4);
             this.btnStatus.Name = "btnStatus";
             this.btnStatus.Size = new System.Drawing.Size(267, 49);
             this.btnStatus.TabIndex = 2;
@@ -79,7 +77,7 @@
             // btnEquipment
             // 
             this.btnEquipment.Location = new System.Drawing.Point(56, 187);
-            this.btnEquipment.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.btnEquipment.Margin = new System.Windows.Forms.Padding(4);
             this.btnEquipment.Name = "btnEquipment";
             this.btnEquipment.Size = new System.Drawing.Size(267, 49);
             this.btnEquipment.TabIndex = 3;
@@ -87,21 +85,10 @@
             this.btnEquipment.UseVisualStyleBackColor = true;
             this.btnEquipment.Click += new System.EventHandler(this.btnEquipment_Click);
             // 
-            // btnSaveLoad
-            // 
-            this.btnSaveLoad.Location = new System.Drawing.Point(56, 244);
-            this.btnSaveLoad.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
-            this.btnSaveLoad.Name = "btnSaveLoad";
-            this.btnSaveLoad.Size = new System.Drawing.Size(267, 49);
-            this.btnSaveLoad.TabIndex = 4;
-            this.btnSaveLoad.Text = "SAVE / LOAD";
-            this.btnSaveLoad.UseVisualStyleBackColor = true;
-            this.btnSaveLoad.Click += new System.EventHandler(this.btnSaveLoad_Click);
-            // 
             // btnMainMenu
             // 
-            this.btnMainMenu.Location = new System.Drawing.Point(56, 300);
-            this.btnMainMenu.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.btnMainMenu.Location = new System.Drawing.Point(56, 253);
+            this.btnMainMenu.Margin = new System.Windows.Forms.Padding(4);
             this.btnMainMenu.Name = "btnMainMenu";
             this.btnMainMenu.Size = new System.Drawing.Size(267, 49);
             this.btnMainMenu.TabIndex = 5;
@@ -111,8 +98,8 @@
             // 
             // trackBarVolume
             // 
-            this.trackBarVolume.Location = new System.Drawing.Point(56, 390);
-            this.trackBarVolume.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.trackBarVolume.Location = new System.Drawing.Point(56, 342);
+            this.trackBarVolume.Margin = new System.Windows.Forms.Padding(4);
             this.trackBarVolume.Name = "trackBarVolume";
             this.trackBarVolume.Size = new System.Drawing.Size(267, 56);
             this.trackBarVolume.TabIndex = 6;
@@ -122,7 +109,7 @@
             // lblVolume
             // 
             this.lblVolume.AutoSize = true;
-            this.lblVolume.Location = new System.Drawing.Point(52, 370);
+            this.lblVolume.Location = new System.Drawing.Point(52, 321);
             this.lblVolume.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.lblVolume.Name = "lblVolume";
             this.lblVolume.Size = new System.Drawing.Size(66, 16);
@@ -131,7 +118,6 @@
             // 
             // btnClose
             // 
-            this.btnClose = new System.Windows.Forms.Button();
             this.btnClose.Location = new System.Drawing.Point(330, 12);
             this.btnClose.Margin = new System.Windows.Forms.Padding(4);
             this.btnClose.Name = "btnClose";
@@ -140,7 +126,7 @@
             this.btnClose.Text = "X";
             this.btnClose.UseVisualStyleBackColor = true;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
-            //
+            // 
             // frmMenu
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
@@ -150,18 +136,16 @@
             this.Controls.Add(this.trackBarVolume);
             this.Controls.Add(this.btnMainMenu);
             this.Controls.Add(this.btnClose);
-            this.Controls.Add(this.btnSaveLoad);
             this.Controls.Add(this.btnEquipment);
             this.Controls.Add(this.btnStatus);
             this.Controls.Add(this.btnItem);
             this.Controls.Add(this.lblPaused);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
-            this.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.Margin = new System.Windows.Forms.Padding(4);
             this.Name = "frmMenu";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "Pause Menu";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.frmMenu_FormClosed);
-          
             ((System.ComponentModel.ISupportInitialize)(this.trackBarVolume)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -174,7 +158,6 @@
         private System.Windows.Forms.Button btnItem;
         private System.Windows.Forms.Button btnStatus;
         private System.Windows.Forms.Button btnEquipment;
-        private System.Windows.Forms.Button btnSaveLoad;
         private System.Windows.Forms.Button btnMainMenu;
         private System.Windows.Forms.TrackBar trackBarVolume;
         private System.Windows.Forms.Label lblVolume;

@@ -28,236 +28,218 @@ namespace GUI.GameEntities
         protected float speed;
         protected float patrolSpeed;
 
+        // --- THÊM: Biến tấn công và Cooldown ---
+        protected int attackCooldown = 0;
+        protected int attackCooldownDuration = 60; // 1 giây
+        // ------------------------------------
+
         public AnimationActivity idleAnim, walkAnim, runAnim, attackAnim, hurtAnim, deathAnim;
         public AnimationActivity castAnim, spellAnim;
 
         protected string facingDirection = "down";
-        protected float aggroRange = 300; // Tầm phát hiện (sẽ bị ghi đè bởi Orc, Slime, Boss)
-        protected float attackRange = 30;
-        protected PointF patrolOrigin;
-        protected PointF patrolTarget;
+        protected float aggroRange = 210 * 210; // Tầm phát hiện (BÌNH PHƯƠNG) - ĐÃ GIẢM TỪ 300
+        protected float attackRange = 90 * 90; // Tầm đánh (BÌNH PHƯƠNG)
+        protected PointF patrolOrigin; // Mốc spawn
+        protected PointF patrolTarget; // Điểm tuần tra
         protected int patrolTimer = 0;
         protected static Random rand = new Random();
 
-        // --- THAY ĐỔI: patrolRange, chaseRange được thiết lập bởi lớp con (ví dụ Orc) hoặc mặc định ở đây ---
-        protected float patrolRange = 10 * frmMainGame.TILE_SIZE; // 10 ô logic (mặc định)
-        protected float chaseRange = 20 * frmMainGame.TILE_SIZE; // 20 ô logic (mặc định)
-        // --- THÊM: Biến cho A* Pathfinding ---
-        private List<Point> _currentPathTiles = new List<Point>();
-        private int _pathUpdateTimer = 0; // Đếm ngược để làm mới đường đi
-        private Point _lastPlayerTile = Point.Empty; // Vị trí tile cuối cùng của người chơi
-        // --- THÊM: Biến Cooldown Tấn công ---
-        protected int attackCooldown = 0;
-        // (60 frames ~ 2 giây, có thể được lớp con ghi đè)
-        protected virtual int attackCooldownDuration => 60;
+        // Sử dụng hằng số TILE_SIZE từ frmMainGame
+        protected const int TILE_SIZE_LOGIC = frmMainGame.TILE_SIZE;
+        // Tầm tuần tra (ghi đè ở lớp con)
+        protected float patrolRange = 5 * TILE_SIZE_LOGIC;
+        // Tầm truy đuổi tối đa (mặc định 20 ô) - SỬA LỖI: PHẢI LÀ BÌNH PHƯƠNG
+        protected float chaseRange = (20 * TILE_SIZE_LOGIC) * (20 * TILE_SIZE_LOGIC);
+
+
+        // --- BIẾN MỚI CHO A* (PATHFINDING) ---
+        protected List<Point> _currentPath = null;
+        protected int _pathRecalculateCooldown = 30; // 0.5 giây
+        protected int _pathRecalculateTimer = 0;
+        protected PointF _moveTarget; // Mục tiêu di chuyển (logic 1:1)
 
         public Monster(float startX, float startY)
         {
             X = startX;
             Y = startY;
-            // THAY ĐỔI: Lưu mốc spawn chính xác
-            patrolOrigin = new PointF(X, Y);
-            State = MonsterState.Idle; // Bắt đầu ở trạng thái Đứng yên
+            // SỬA LỖI: Xóa 'patrolOrigin' và '_moveTarget' khỏi đây
+            // Chúng sẽ được khởi tạo ở lớp CON (Slime, Orc...) SAU KHI SetStats() chạy.
+            State = MonsterState.Idle;
         }
 
         protected abstract void LoadAnimations();
         protected abstract void SetStats();
 
-        // --- SỬA LỖI AI: Đổi tham số thành tâm người chơi ---
-        // (Hàm Update đã truyền vào tâm, không cần cộng thêm ở đây)
-        protected float GetDistanceToPlayer(float playerCenterX, float playerCenterY)
-        {
-            // Player hitbox is 25x25 starting at (playerX, playerY). Center is at (playerX + 12.5, playerY + 12.5).
-            // float playerCenterX = playerX + 12.5f; // <-- XÓA DÒNG NÀY
-            // float playerCenterY = playerY + 12.5f; // <-- XÓA DÒNG NÀY
+        // THÊM: Hàm công khai để frmMainGame đọc damage (cho Body Damage)
+        public int GetAttackDamage() => attackDamage;
 
-            // Monster center is at (X + Width/2, Y + Height/2).
+        // SỬA LỖI: Cập nhật hàm này để lấy KÍCH THƯỚC PLAYER động từ 'game'
+        protected float GetDistanceToPlayer(frmMainGame game, float playerX, float playerY)
+        {
+            // Lấy kích thước player từ frmMainGame (public)
+            float playerCenterX = playerX + game.playerWidth / 2f;
+            float playerCenterY = playerY + game.playerHeight / 2f;
+
             float monsterCenterX = X + Width / 2;
             float monsterCenterY = Y + Height / 2;
 
             float dx = playerCenterX - monsterCenterX;
             float dy = playerCenterY - monsterCenterY;
-            return (dx * dx) + (dy * dy);
+            return (dx * dx) + (dy * dy); // Trả về bình phương khoảng cách
         }
 
+        // ===================================================================================
+        // HÀM UPDATE QUAN TRỌNG VỚI LOGIC A* (THAY THẾ HÀM CŨ)
+        // ===================================================================================
         public virtual void Update(frmMainGame game, float playerX, float playerY, List<SpellEffect> spellEffects)
         {
             if (State == MonsterState.Dead || State == MonsterState.Friendly) return;
             if (game == null) return;
-            // --- THÊM: Cập nhật Cooldown Tấn công ---
+
+            if (_pathRecalculateTimer > 0) _pathRecalculateTimer--;
+
+            // --- THÊM: Giảm Cooldown Tấn Công ---
             if (attackCooldown > 0) attackCooldown--;
+            // ------------------------------------
 
-            // Tính khoảng cách (bình phương) đến người chơi
-            // (Sử dụng tâm của hitbox nhân vật, giả sử hitbox là 10x10)
-            float playerCenterX = playerX + 5;
-            float playerCenterY = playerY + 5;
-            // --- LỖI ĐÃ ĐƯỢC SỬA: Hàm GetDistanceToPlayer giờ đã chấp nhận (playerCenterX, playerCenterY) ---
-            float distanceSq = GetDistanceToPlayer(playerCenterX, playerCenterY);
-
-            // 1. XỬ LÝ TRẠNG THÁI (ƯU TIÊN CAO NHẤT)
+            // --- KIỂM TRA TRẠNG THÁI (HURT, ATTACK, CASTING) ---
             if (State == MonsterState.Hurt)
             {
-                if (hurtAnim.IsFinished)
-                {
-                    State = MonsterState.Chase; // Chuyển sang truy đuổi ngay
-                }
-                return; // Không làm gì khác khi bị đau
+                if (hurtAnim.IsFinished) State = MonsterState.Chase;
+                return;
             }
-
+            // --- THÊM: Logic Tấn Công Thường (KHI HOẠT ẢNH KẾT THÚC) ---
             if (State == MonsterState.Attack)
             {
                 if (attackAnim.IsFinished)
                 {
-                    // --- THÊM: Gây sát thương KHI HOẠT ẢNH KẾT THÚC ---
-                    // (Kiểm tra xem player còn trong tầm không)
-                    float playerCenterX_now = playerX + 5;
-                    float playerCenterY_now = playerY + 5;
-                    if (GetDistanceToPlayer(playerCenterX_now, playerCenterY_now) <= attackRange * attackRange)
+                    // [KHẮC PHỤC LỖI CS7036] - Thêm 3 tham số
+                    if (GetDistanceToPlayer(game, playerX, playerY) <= attackRange)
                     {
-                        game.ApplyDamageToPlayer(this.attackDamage);
+                        game.ApplyDamageToPlayer(this.attackDamage); // <--- DÒNG GÂY SÁT THƯƠNG
                     }
                     State = MonsterState.Chase; // Quay lại truy đuổi
                 }
                 return; // Không làm gì khác khi đang tấn công
             }
-
+            // ------------------------------------
             if (State == MonsterState.Casting)
             {
-                // (Dành riêng cho Boss)
-                return;
+                return; // Logic cast của Boss sẽ override
             }
 
-            // 2. KIỂM TRA TẦM NHÌN (LINE OF SIGHT - LOS)
+            // --- LOGIC AI MỚI (TẦM NHÌN & TÌM ĐƯỜNG) ---
+            float playerCenterX = playerX + game.playerWidth / 2f;
+            float playerCenterY = playerY + game.playerHeight / 2f;
+            // [KHẮC PHỤC LỖI CS7036] - Thêm 3 tham số
+            float distanceSq = GetDistanceToPlayer(game, playerX, playerY);
             bool canSeePlayer = false;
-            // Chỉ kiểm tra LOS nếu người chơi trong tầm truy đuổi (20 ô)
-            if (distanceSq <= chaseRange * chaseRange)
+
+            // 1. Kiểm tra tầm nhìn (Line of Sight)
+            if (distanceSq <= chaseRange) // Chỉ kiểm tra tầm nhìn trong phạm vi truy đuổi (đã bình phương)
             {
-                canSeePlayer = game.HasLineOfSight(
-                    new PointF(X + Width / 2, Y + Height / 2),
-                    new PointF(playerCenterX, playerCenterY)
-                );
+                canSeePlayer = game.HasLineOfSight(new PointF(X + Width / 2, Y + Height / 2), new PointF(playerCenterX, playerCenterY));
             }
 
-            // 3. QUYẾT ĐỊNH HÀNH ĐỘNG (FSM - Finite State Machine)
+            // 2. QUYẾT ĐỊNH TRẠNG THÁI (FSM) - ĐÃ SẮP XẾP LẠI
 
-            // A. Nếu có thể thấy người chơi
-            if (canSeePlayer)
+            // TRƯỜNG HỢP 1: TẤN CÔNG (Gần nhất, ưu tiên cao nhất)
+            if (distanceSq <= attackRange && canSeePlayer && attackCooldown == 0)
             {
-                // A1. Nếu trong tầm đánh (do lớp con (Orc) định nghĩa)
-                if (distanceSq <= attackRange * attackRange && attackCooldown == 0)
+                State = MonsterState.Attack;
+                attackAnim.ResetFrame();
+                attackCooldown = attackCooldownDuration; // Bắt đầu cooldown
+                _currentPath = null;
+            }
+            // TRƯỜNG HỢP 2: TRUY ĐUỔI (Nhìn thấy và trong tầm aggro)
+            else if (canSeePlayer && distanceSq <= aggroRange)
+            {
+                State = MonsterState.Chase;
+                _moveTarget = new PointF(playerCenterX, playerCenterY);
+                _currentPath = null; // Hủy pathfinding vì thấy
+            }
+            // TRƯỜNG HỢP 3: TÌM ĐƯỜNG (Không thấy, nhưng ở gần)
+            else if (!canSeePlayer && distanceSq <= aggroRange)
+            {
+                State = MonsterState.Chase; // Vẫn là Chase, nhưng dùng A*
+                if (_pathRecalculateTimer <= 0)
                 {
-                    // --- SỬA: KÍCH HOẠT TẤN CÔNG VÀ GÂY SÁT THƯƠNG ---
-                    // Chỉ kích hoạt nếu không đang tấn công
-                    if (State != MonsterState.Attack)
+                    Point startTile = new Point((int)((X + Width / 2) / TILE_SIZE_LOGIC), (int)((Y + Height / 2) / TILE_SIZE_LOGIC));
+                    Point endTile = new Point((int)(playerCenterX / TILE_SIZE_LOGIC), (int)(playerCenterY / TILE_SIZE_LOGIC));
+
+                    if (startTile.X != endTile.X || startTile.Y != endTile.Y)
                     {
-                        State = MonsterState.Attack;
-                        attackAnim.ResetFrame();
-                        // GỌI HÀM GÂY SÁT THƯƠNG CHO PLAYER
-                        //game.ApplyDamageToPlayer(this.attackDamage);
-                        attackCooldown = attackCooldownDuration;
+                        _currentPath = game.FindPath(startTile, endTile);
+                    }
+                    _pathRecalculateTimer = _pathRecalculateCooldown;
+                }
+
+                if (_currentPath != null && _currentPath.Count > 0)
+                {
+                    Point nextTile = _currentPath[0];
+                    _moveTarget = new PointF(nextTile.X * TILE_SIZE_LOGIC + TILE_SIZE_LOGIC / 2f, nextTile.Y * TILE_SIZE_LOGIC + TILE_SIZE_LOGIC / 2f);
+
+                    if (GetDistanceToPoint(_moveTarget) < (TILE_SIZE_LOGIC / 2f) * (TILE_SIZE_LOGIC / 2f))
+                    {
+                        _currentPath.RemoveAt(0);
+                        if (_currentPath.Count == 0) _currentPath = null;
                     }
                 }
-                // --- SỬA LỖI AI: Dùng aggroRange (10 ô) thay vì perceptionRange (3 ô) ---
-                // A2. Nếu trong tầm phát hiện (10 ô) hoặc đang truy đuổi
-                else if (distanceSq <= aggroRange * aggroRange || State == MonsterState.Chase)
-                {
-                    //MoveTowards(game, patrolTarget, patrolSpeed);
-                    State = MonsterState.Chase;
-                }
-                // A3. Nếu thấy người chơi nhưng ngoài tầm 10 ô và chưa truy đuổi
                 else
                 {
-                    // Quay về tuần tra (nếu đang không làm gì)
-                    if (State == MonsterState.Idle) State = MonsterState.Patrol;
+                    // Không tìm thấy đường, quay về mốc
+                    State = MonsterState.Patrol;
+                    _moveTarget = patrolOrigin;
                 }
             }
-            // B. Nếu không thể thấy người chơi (hoặc ngoài 20 ô)
+            // TRƯỜNG HỢP 4: NGỪNG ĐUỔI (Player đã chạy xa) HOẶC ĐANG TUẦN TRA/RẢNH
             else
             {
-                // Nếu đang truy đuổi, dừng lại và quay về tuần tra
+                // Nếu đang Chase, chuyển sang Patrol (để quay về)
                 if (State == MonsterState.Chase)
                 {
                     State = MonsterState.Patrol;
+                    _moveTarget = patrolOrigin; // Mục tiêu là quay về mốc
                 }
-            }
 
-            // 4. XỬ LÝ TUẦN TRA (PATROL) VÀ ĐỨNG YÊN (IDLE)
-            if (State == MonsterState.Idle)
-            {
-                patrolTimer++;
-                if (patrolTimer > rand.Next(100, 200)) // Đứng yên 1-2 giây
+                float distToOriginSq = GetDistanceToPoint(patrolOrigin);
+                float maxPatrolDistSq = this.patrolRange * this.patrolRange;
+
+                // Nếu đang tuần tra và đi quá xa mốc
+                if (State == MonsterState.Patrol && distToOriginSq > maxPatrolDistSq)
                 {
-                    patrolTimer = 0;
-                    State = MonsterState.Patrol;
-                    SetNewPatrolTarget(game); // Tìm điểm tuần tra mới
+                    _moveTarget = patrolOrigin; // Quay về mốc
                 }
-            }
-            else if (State == MonsterState.Patrol)
-            {
-                //MoveTowards(game, patrolTarget, patrolSpeed);
-
-                // Nếu đi gần đến mục tiêu
-                if (GetDistanceToPoint(patrolTarget) < (frmMainGame.TILE_SIZE * frmMainGame.TILE_SIZE))
+                // Nếu đã về gần mốc (hoặc gần điểm tuần tra)
+                else if (State == MonsterState.Patrol && (GetDistanceToPoint(_moveTarget) < 10 * 10))
                 {
-                    State = MonsterState.Idle; // Đứng yên chờ
+                    State = MonsterState.Idle; // Về đến nơi, đứng chờ
+                }
+                // Nếu đang rảnh (Idle)
+                else if (State == MonsterState.Idle)
+                {
+                    patrolTimer++;
+                    if (patrolTimer > rand.Next(100, 200))
+                    {
+                        patrolTimer = 0;
+                        State = MonsterState.Patrol;
+                        SetNewPatrolTarget(game); // Tìm điểm tuần tra mới
+                        _moveTarget = patrolTarget;
+                    }
                 }
             }
-            // --- THÊM: LOGIC A* PATHFINDING & MOVEMENT ---
-            if (_pathUpdateTimer > 0) _pathUpdateTimer--;
 
-            // 1. Lấy đường đi mới nếu cần
+            // --- THỰC HIỆN DI CHUYỂN ---
             if (State == MonsterState.Chase)
             {
-                // Lấy vị trí tile của quái và người chơi
-                Point myTile = game.WorldToTile(new PointF(X + Width / 2, Y + Height / 2));
-                Point playerTile = game.WorldToTile(new PointF(playerCenterX, playerCenterY));
-
-                // Cần đường đi mới NẾU:
-                // 1. Hết thời gian chờ (tránh việc 50 con quái tìm đường cùng lúc)
-                // 2. Hoặc người chơi đã di chuyển sang ô tile khác
-                if (_pathUpdateTimer <= 0 || playerTile != _lastPlayerTile)
-                {
-                    _currentPathTiles = game.FindPath(myTile, playerTile);
-                    _lastPlayerTile = playerTile; // Lưu vị trí cuối
-                    _pathUpdateTimer = 15; // Chờ 15 frame (khoảng 0.5s)
-                }
+                MoveTowards(game, _moveTarget, speed);
             }
             else if (State == MonsterState.Patrol)
             {
-                // Nếu đang tuần tra và không có đường đi (hoặc đã đi hết) -> Tìm đường mới
-                if (_currentPathTiles.Count == 0)
-                {
-                    SetNewPatrolTarget(game);
-                }
-            }
-            else
-            {
-                // Nếu Đứng yên, Tấn công, Bị thương... -> Xóa đường đi
-                _currentPathTiles.Clear();
-            }
-
-            // 2. Di chuyển theo đường đi
-            if (_currentPathTiles.Count > 0)
-            {
-                // Lấy node tiếp theo (đây là TILE)
-                Point nextTile = _currentPathTiles[0];
-                // Chuyển sang tọa độ Pixel (TÂM của TILE)
-                PointF worldTarget = game.TileToWorld(nextTile);
-
-                // Di chuyển đến TÂM của node đó
-                float currentSpeed = (State == MonsterState.Chase) ? speed : patrolSpeed;
-                MoveTowards(game, worldTarget, currentSpeed); // <-- Dùng lại hàm MoveTowards cũ
-
-                // Kiểm tra xem đã đến gần node đó chưa
-                if (GetDistanceToPoint(worldTarget) < (frmMainGame.TILE_SIZE / 2f) * (frmMainGame.TILE_SIZE / 2f))
-                {
-                    // Đến rồi -> Xóa node này khỏi danh sách và đi node tiếp theo
-                    _currentPathTiles.RemoveAt(0);
-                }
+                MoveTowards(game, _moveTarget, patrolSpeed);
             }
         }
 
-        // --- SỬA: Logic va chạm trượt (Sliding Collision) ---
         protected void MoveTowards(frmMainGame game, PointF target, float speed)
         {
             if (game == null) return;
@@ -266,7 +248,7 @@ namespace GUI.GameEntities
             float dy = target.Y - (Y + Height / 2);
             float distance = (float)Math.Sqrt(dx * dx + dy * dy);
 
-            if (distance > 0)
+            if (distance > 1.0f) // Thêm ngưỡng nhỏ để tránh rung lắc
             {
                 dx /= distance;
                 dy /= distance;
@@ -276,7 +258,6 @@ namespace GUI.GameEntities
 
                 // 1. Thử di chuyển X
                 RectangleF nextHitboxX = new RectangleF(X + moveX, Y, Width, Height);
-                // SỬA LỖI CS0176: Truy cập bằng tên kiểu
                 RectangleF scaledNextHitboxX = new RectangleF(
                     nextHitboxX.X * frmMainGame.RENDER_SCALE,
                     nextHitboxX.Y * frmMainGame.RENDER_SCALE,
@@ -288,10 +269,29 @@ namespace GUI.GameEntities
                 {
                     X += moveX;
                 }
+                else
+                {
+                    // Logic trượt Y
+                    float scaledSlideTolerance = frmMainGame.BASE_SLIDE_TOLERANCE / frmMainGame.RENDER_SCALE;
+                    if (moveY != 0)
+                    {
+                        float slideY = moveY > 0 ? scaledSlideTolerance : -scaledSlideTolerance;
+                        RectangleF slideHitboxY = new RectangleF(X + moveX, Y + slideY, Width, Height);
+                        RectangleF scaledSlideHitboxY = new RectangleF(
+                            slideHitboxY.X * frmMainGame.RENDER_SCALE,
+                            slideHitboxY.Y * frmMainGame.RENDER_SCALE,
+                            slideHitboxY.Width * frmMainGame.RENDER_SCALE,
+                            slideHitboxY.Height * frmMainGame.RENDER_SCALE
+                        );
+                        if (!game.IsCollidingWithWallScaled(scaledSlideHitboxY))
+                        {
+                            Y += slideY;
+                        }
+                    }
+                }
 
                 // 2. Thử di chuyển Y
                 RectangleF nextHitboxY = new RectangleF(X, Y + moveY, Width, Height);
-                // SỬA LỖI CS0176: Truy cập bằng tên kiểu
                 RectangleF scaledNextHitboxY = new RectangleF(
                     nextHitboxY.X * frmMainGame.RENDER_SCALE,
                     nextHitboxY.Y * frmMainGame.RENDER_SCALE,
@@ -302,6 +302,26 @@ namespace GUI.GameEntities
                 if (!game.IsCollidingWithWallScaled(scaledNextHitboxY))
                 {
                     Y += moveY;
+                }
+                else
+                {
+                    // Logic trượt X
+                    float scaledSlideTolerance = frmMainGame.BASE_SLIDE_TOLERANCE / frmMainGame.RENDER_SCALE;
+                    if (moveX != 0)
+                    {
+                        float slideX = moveX > 0 ? scaledSlideTolerance : -scaledSlideTolerance;
+                        RectangleF slideHitboxX = new RectangleF(X + slideX, Y + moveY, Width, Height);
+                        RectangleF scaledSlideHitboxX = new RectangleF(
+                            slideHitboxX.X * frmMainGame.RENDER_SCALE,
+                            slideHitboxX.Y * frmMainGame.RENDER_SCALE,
+                            slideHitboxX.Width * frmMainGame.RENDER_SCALE,
+                            slideHitboxX.Height * frmMainGame.RENDER_SCALE
+                        );
+                        if (!game.IsCollidingWithWallScaled(scaledSlideHitboxX))
+                        {
+                            X += slideX;
+                        }
+                    }
                 }
 
                 // 3. Cập nhật hướng nhìn
@@ -318,36 +338,55 @@ namespace GUI.GameEntities
 
         protected float GetDistanceToPoint(PointF target)
         {
-            float dx = target.X - (X + Width / 2);
-            float dy = target.Y - (Y + Height / 2);
+            float monsterCenterX = X + Width / 2;
+            float monsterCenterY = Y + Height / 2;
+            float dx = target.X - monsterCenterX;
+            float dy = target.Y - monsterCenterY;
             return (dx * dx) + (dy * dy);
-        }
-
-        // --- HÀM TẠO MỤC TIÊU PATROL KHÔNG KIỂM TRA VA CHẠM (chỉ dùng cho init) ---
-        protected void SetNewPatrolTarget()
-        {
-            int range = 150;
-            float targetX = patrolOrigin.X + rand.Next(-range, range);
-            float targetY = patrolOrigin.Y + rand.Next(-range, range);
-            patrolTarget = new PointF(targetX, targetY);
         }
 
         // --- HÀM TẠO MỤC TIÊU PATROL CÓ KIỂM TRA VA CHẠM ---
         protected void SetNewPatrolTarget(frmMainGame game)
         {
-            if (game == null) return;
-            // A* Pathfinding:
-            // 1. Lấy vị trí tile hiện tại
-            Point myTile = game.WorldToTile(new PointF(X + Width / 2, Y + Height / 2));
-            // 2. Tìm 1 tile ngẫu nhiên có thể đi được
-            Point randomTile = game.FindRandomWalkableTile();
-            // 3. Tìm đường đi đến đó
-            _currentPathTiles = game.FindPath(myTile, randomTile);
+            if (game == null)
+            {
+                patrolTarget = patrolOrigin;
+                return;
+            }
+
+            // Dùng patrolRange (được ghi đè bởi Orc, Slime...)
+            int range = (int)this.patrolRange;
+            RectangleF testHitbox = new RectangleF(X, Y, Width, Height);
+
+            for (int i = 0; i < 5; i++)
+            {
+                // SỬA LỖI: Lấy tâm (center) của hitbox, không phải top-left (X, Y)
+                // Lấy vị trí tuần tra ngẫu nhiên xung quanh mốc (patrolOrigin)
+                float targetX = patrolOrigin.X + rand.Next(-range, range);
+                float targetY = patrolOrigin.Y + rand.Next(-range, range);
+
+                testHitbox.X = targetX - Width / 2f; // Căn tâm
+                testHitbox.Y = targetY - Height / 2f; // Căn tâm
+
+                RectangleF scaledTestHitbox = new RectangleF(
+                    testHitbox.X * frmMainGame.RENDER_SCALE,
+                    testHitbox.Y * frmMainGame.RENDER_SCALE,
+                    testHitbox.Width * frmMainGame.RENDER_SCALE,
+                    testHitbox.Height * frmMainGame.RENDER_SCALE
+                );
+
+                if (!game.IsCollidingWithWallScaled(scaledTestHitbox))
+                {
+                    patrolTarget = new PointF(targetX, targetY);
+                    return;
+                }
+            }
+            patrolTarget = patrolOrigin; // Quay về mốc nếu không tìm thấy
         }
 
         public virtual void TakeDamage(int damage)
         {
-            if (State == MonsterState.Dead || State == MonsterState.Friendly) return; // BẢO VỆ
+            if (State == MonsterState.Dead || State == MonsterState.Friendly) return;
 
             Health -= damage;
             if (Health <= 0)
@@ -366,48 +405,46 @@ namespace GUI.GameEntities
         public virtual void Draw(Graphics canvas, int scale)
         {
             Image imageToDraw = null;
+            string currentDirection = (State == MonsterState.Friendly) ? "down" : facingDirection;
 
             switch (State)
             {
                 case MonsterState.Idle:
-                case MonsterState.Friendly: // DÙNG IDLE CHO FRIENDLY
-                    imageToDraw = idleAnim.GetNextFrame(facingDirection);
+                case MonsterState.Friendly:
+                    imageToDraw = idleAnim.GetNextFrame(currentDirection);
                     break;
                 case MonsterState.Patrol:
-                    imageToDraw = walkAnim.GetNextFrame(facingDirection);
+                    imageToDraw = walkAnim.GetNextFrame(currentDirection);
                     break;
                 case MonsterState.Chase:
-                    imageToDraw = runAnim.GetNextFrame(facingDirection);
+                    imageToDraw = runAnim.GetNextFrame(currentDirection);
                     break;
                 case MonsterState.Attack:
-                    imageToDraw = attackAnim.GetNextFrame(facingDirection);
+                    imageToDraw = attackAnim.GetNextFrame(currentDirection);
                     break;
                 case MonsterState.Casting:
-                    imageToDraw = castAnim.GetNextFrame(facingDirection);
+                    imageToDraw = (castAnim != null) ? castAnim.GetNextFrame(currentDirection) : idleAnim.GetNextFrame(currentDirection);
                     break;
                 case MonsterState.Hurt:
-                    imageToDraw = hurtAnim.GetNextFrame(facingDirection);
+                    imageToDraw = hurtAnim.GetNextFrame(currentDirection);
                     break;
                 case MonsterState.Dead:
-                    imageToDraw = deathAnim.GetNextFrame(facingDirection);
+                    imageToDraw = deathAnim.GetNextFrame(currentDirection);
                     break;
             }
 
             if (imageToDraw != null)
             {
-                using (imageToDraw)
-                {
-                    // LƯU Ý: DrawWidth/Height được cố định hoặc dựa trên kích thước Vẽ lớn hơn Hitbox.
-                    // Vẫn cần dùng X, Y đã được SCALE
-                    int drawWidth = Width;
-                    int drawHeight = Height;
-                    float drawX = X * scale - (drawWidth - Width) / 2; // Dùng float X
-                    float drawY = Y * scale - (drawHeight - Height) / 2; // Dùng float Y
-                    canvas.DrawImage(imageToDraw, drawX, drawY, drawWidth, drawHeight);
-                }
+                // SỬA LỖI: Không dùng 'using' vì ảnh được cache
+                int drawWidth = Width;
+                int drawHeight = Height;
+                float drawX = X * scale;
+                float drawY = Y * scale;
+
+                AdjustDrawSize(ref drawX, ref drawY, ref drawWidth, ref drawHeight, scale);
+                canvas.DrawImage(imageToDraw, drawX, drawY, drawWidth, drawHeight);
             }
 
-            // VẼ THANH MÁU VÀ LABEL FRIENDLY
             if (State != MonsterState.Idle && State != MonsterState.Patrol && State != MonsterState.Dead && State != MonsterState.Friendly)
             {
                 DrawHealthBar(canvas, scale);
@@ -418,6 +455,14 @@ namespace GUI.GameEntities
             }
         }
 
+        // Hàm ảo để các lớp con ghi đè (cho phép vẽ ảnh to hơn hitbox)
+        protected virtual void AdjustDrawSize(ref float drawX, ref float drawY, ref int drawWidth, ref int drawHeight, int scale)
+        {
+            // Lớp Monster cha vẽ 1:1 với hitbox (đã nhân scale)
+            drawWidth = Width * scale;
+            drawHeight = Height * scale;
+        }
+
         protected void DrawHealthBar(Graphics canvas, int scale)
         {
             int barWidth = Width * scale;
@@ -426,15 +471,11 @@ namespace GUI.GameEntities
             float barX = X * scale;
 
             canvas.FillRectangle(Brushes.Black, barX, barY, barWidth, barHeight);
-
             float healthPercentage = (float)Health / MaxHealth;
             int currentHealthWidth = (int)(barWidth * healthPercentage);
-
             canvas.FillRectangle(Brushes.LawnGreen, barX, barY, currentHealthWidth, barHeight);
-
             canvas.DrawRectangle(Pens.Black, barX, barY, barWidth, barHeight);
         }
     }
 }
-
 

@@ -11,31 +11,31 @@ namespace GUI.GameEntities
 {
     public class Orc : Monster
     {
-        // ... [Nội dung Orc không đổi] ...
         public Orc(float startX, float startY) : base(startX, startY)
         {
             SetStats();
             LoadAnimations();
+
+            // SỬA LỖI CONSTRUCTOR: Khởi tạo sau khi SetStats
+            patrolOrigin = new PointF(X + Width / 2, Y + Height / 2);
+            _moveTarget = new PointF(X + Width / 2, Y + Height / 2);
         }
 
         protected override void SetStats()
         {
-            Width = 45;
-            Height = 45;
+            Width = 15; // Hitbox logic nhỏ
+            Height = 15; // Hitbox logic nhỏ
             MaxHealth = 120;
             Health = MaxHealth;
             attackDamage = 10;
             speed = 2.0f;
             patrolSpeed = 0.8f;
-            attackRange = 30; // Tầm đánh (4 ô)
 
-            // --- THAY ĐỔI THEO YÊU CẦU ---
-            // 1. Giới hạn tuần tra 5 ô
+            // SỬA LỖI: Tầm đánh/nhìn phải là BÌNH PHƯƠNG
+            attackRange = 50 * 50; // Tầm đánh (bình phương)
+            aggroRange = 100 * 100; // Tầm nhìn (bình phương)
+
             base.patrolRange = 5 * frmMainGame.TILE_SIZE; // (5 * 30 = 150px)
-            // 2. Tầm phát hiện 10 ô
-            aggroRange = 10 * frmMainGame.TILE_SIZE; // (10 * 30 = 300px)
-            // 3. Tầm đuổi theo 20 ô (đã được đặt ở lớp Monster.cs)
-            // --- KẾT THÚC THAY ĐỔI ---
         }
 
         protected override void LoadAnimations()
@@ -54,9 +54,8 @@ namespace GUI.GameEntities
             runAnim = new AnimationActivity(6);
             runAnim.LoadImages(Path.Combine(runRoot, "Back"), Path.Combine(runRoot, "Front"), Path.Combine(runRoot, "Left"), Path.Combine(runRoot, "Right"));
 
-            // --- SỬA: Trả lại hoạt ảnh tấn công ĐỨNG YÊN (Atk) theo yêu cầu ---
             string attackRoot = Path.Combine(orcRoot, "Atk");
-            attackAnim = new AnimationActivity(10) { IsLooping = false };
+            attackAnim = new AnimationActivity(5) { IsLooping = false };
             attackAnim.LoadImages(Path.Combine(attackRoot, "Back"), Path.Combine(attackRoot, "Front"), Path.Combine(attackRoot, "Left"), Path.Combine(attackRoot, "Right"));
 
             string hurtRoot = Path.Combine(orcRoot, "Hurt");
@@ -69,59 +68,24 @@ namespace GUI.GameEntities
         }
 
         // CHỈNH SỬA DRAW ĐỂ CHẤP NHẬN SCALE VÀ VẼ LỚN HƠN
+        // (Ghi đè hàm ảo của Monster)
+        protected override void AdjustDrawSize(ref float drawX, ref float drawY, ref int drawWidth, ref int drawHeight, int scale)
+        {
+            // LƯU Ý: Orc vẽ lớn hơn hitbox
+            drawWidth = 110;
+            drawHeight = 110;
+
+            // Căn lại theo logic scale
+            drawX = (X * scale) - ((drawWidth - (Width * scale)) / 2f);
+            drawY = (Y * scale) - ((drawHeight - (Height * scale)) / 2f);
+        }
+
+        // SỬA LỖI: Xóa hàm 'Draw' vì nó đã được xử lý ở lớp Monster
+        /*
         public override void Draw(Graphics canvas, int scale)
         {
-            Image imageToDraw = null;
-            string currentDirection = (State == MonsterState.Friendly) ? "down" : facingDirection;
-
-            switch (State)
-            {
-                case MonsterState.Idle:
-                case MonsterState.Friendly:
-                    imageToDraw = idleAnim.GetNextFrame(currentDirection);
-                    break;
-                case MonsterState.Patrol:
-                    imageToDraw = walkAnim.GetNextFrame(currentDirection);
-                    break;
-                case MonsterState.Chase:
-                    imageToDraw = runAnim.GetNextFrame(currentDirection);
-                    break;
-                case MonsterState.Attack:
-                    imageToDraw = attackAnim.GetNextFrame(currentDirection);
-                    break;
-                case MonsterState.Casting:
-                    break; // Orc không có Cast
-                case MonsterState.Hurt:
-                    imageToDraw = hurtAnim.GetNextFrame(currentDirection);
-                    break;
-                case MonsterState.Dead:
-                    imageToDraw = deathAnim.GetNextFrame(currentDirection);
-                    break;
-            }
-
-            if (imageToDraw != null)
-            {
-                using (imageToDraw)
-                {
-                    // LƯU Ý: Orc vẽ lớn hơn hitbox 45x45
-                    int drawWidth = 110;
-                    int drawHeight = 110;
-                    // VỊ TRÍ DRAW ĐÃ ĐƯỢC SCALE
-                    float drawX = X * scale - (drawWidth - Width) / 2;
-                    float drawY = Y * scale - (drawHeight - Height) / 2;
-                    canvas.DrawImage(imageToDraw, drawX, drawY, drawWidth, drawHeight);
-                }
-            }
-
-            if (State != MonsterState.Idle && State != MonsterState.Patrol && State != MonsterState.Dead && State != MonsterState.Friendly)
-            {
-                DrawHealthBar(canvas, scale);
-            }
-            else if (State == MonsterState.Friendly)
-            {
-                canvas.DrawString("FRIENDLY", new Font(FontFamily.GenericSansSerif, 10, FontStyle.Bold), Brushes.LightGreen, X * scale - 10, Y * scale - 20);
-            }
+            // ... (CODE CŨ BỊ XÓA) ...
         }
+        */
     }
 }
-

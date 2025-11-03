@@ -101,6 +101,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.BackgroundImage = global::GUI.Properties.Resources.download__7_;
             this.ClientSize = new System.Drawing.Size(512, 346);
             this.Controls.Add(this.btnContinue);
             this.Controls.Add(this.btnNewGame);
